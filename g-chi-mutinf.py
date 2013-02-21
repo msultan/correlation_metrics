@@ -20,7 +20,7 @@ lbview = client.load_balanced_view()
 dview = client[:]
 
 
-def mutual_information_from_files(res_name1, res_id1, res_name2, res_id2, shuffle,dir):
+def mutual_information_from_files(res_name1, res_id1, res_name2, res_id2, shuffle,dir,skiprows):
 	import numpy #for histogram stuff
 	import optparse
 	import pylab
@@ -38,9 +38,9 @@ def mutual_information_from_files(res_name1, res_id1, res_name2, res_id2, shuffl
 	filename_j = glob.glob('%s' %dir +'%s' %res_name2 + '???' + string_residue_counter_j+ '.xvg.all_data_450micro')
 	if  filename_i and filename_j:
 		filepointer_i = open(filename_i[0],"r")
-		phi_i = numpy.loadtxt(filepointer_i,usecols=(1,)) # getting just the angles from the filepointer file 
+		phi_i = numpy.loadtxt(filepointer_i,usecols=(1,),skiprows=skiprows) # getting just the angles from the filepointer file 
 		filepointer_j= open(filename_j[0],"r")
-		phi_j = numpy.loadtxt(filepointer_j,usecols=(1,)) # getting just the angles from the filepointer file
+		phi_j = numpy.loadtxt(filepointer_j,usecols=(1,),skiprows=skiprows) # getting just the angles from the filepointer file
 		if shuffle:
 			phi_i=numpy.random.permutation(phi_i)
 			phi_j=numpy.random.permutation(phi_j)
@@ -57,7 +57,7 @@ def mutual_information_from_files(res_name1, res_id1, res_name2, res_id2, shuffl
 	
 	
 
-def main(dir,total_n_residues,n_iterations):
+def main(dir,total_n_residues,n_iterations,skiprows):
 	print "Welcome Human!"
 	c=Client(profile='default')
 	dihedral_names = ['chi1','chi2','chi3','phi','psi']
@@ -126,6 +126,7 @@ def parse_commandline():
 	parser.add_option('-d', '--directory', dest='dir',default="../", help='directory with chi1,phi,psi files')
 	parser.add_option('-t','--total_residues',dest='t',type="int",help='total number of residues')
 	parser.add_option('-i','--total_iterations',dest='i',type="int",default=1,help='total iterations')
+	parser.add_option('-s','--skip_rows',dest='s',type='int',default=0,help='skip rows')
 	(options, args) = parser.parse_args()
 	return (options, args)
 	
@@ -133,5 +134,5 @@ def parse_commandline():
 
 if __name__ == "__main__":
 	(options, args) = parse_commandline()
-	main(dir=options.dir, total_n_residues=options.t,n_iterations=options.i)
+	main(dir=options.dir, total_n_residues=options.t,n_iterations=options.i,skiprows=options.s)
 
