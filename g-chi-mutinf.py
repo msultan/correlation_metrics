@@ -62,8 +62,9 @@ def mutual_information_from_files(res_name1, res_id1, res_name2, res_id2, shuffl
 		(H,x,y)=numpy.histogram2d(phi_i,phi_j,bins=1000,range=[[-4,4], [-3, 5]], normed=False)
 		
 		(y_n,bins)=numpy.histogram(phi_i,bins=x,normed=False)
+		print bins
 		(x_n,bins)=numpy.histogram(phi_j,bins=y,normed=False)
-		
+		print bins
 		N=len(phi_i)
 		dx=bins[1]-bins[0]
 		entropy_y=-1*numpy.nansum(y_n/N*numpy.log(y_n/N))+numpy.log(dx)	
