@@ -1,25 +1,26 @@
 #!/usr/bin/env python
 from __future__ import division
-import numpy  #for histogram stuff
+import numpy  # for histogram stuff
 import optparse
 import os
 import glob
 import itertools
 import random
 import multiprocessing
-import pickle  #for compressing the data not really needed right now
+import pickle  # for compressing the data not really needed right now
 from IPython import parallel
 from IPython.parallel import require
 from IPython.parallel import Client
 from collections import defaultdict
 import sys
-import scipy 
+import scipy
 
 client = parallel.Client(profile='default')
 lbview = client.load_balanced_view()
 dview = client[:]
 
 def mutual_information_from_files(res_name1, res_id1, res_name2, res_id2,			shuffle, dir, skiprows,bin_n, test):
+
 	#mutual_information_from_files
 	"""
 	Contact: msultan at stanford dot edu
@@ -40,62 +41,64 @@ def mutual_information_from_files(res_name1, res_id1, res_name2, res_id2,			shuf
 	import glob
 	from scipy.stats.stats import pearsonr
 	if not test:
-		phi_i_range=[-180,180]
-		phi_j_range=[-180,180]
-		#return 'res_name1=%s res_id1=%s res_name2=%s res_id2=%s, shuffle=%s' % (res	_name1, res_id1, res_name2, res_id2, shuffle)
+		res_id1_range=[-180,180]
+		res_id2_range=[-180,180]
 		string_residue_counter_i = str(res_id1)
 		string_residue_counter_j = str(res_id2)
-		filename_i = glob.glob('%s' %dir +'%s' %res_name1 + '???' + string_residue_counter_i+ '.xvg.all_data_450micro')
+		filename_id1 = glob.glob('%s%s???%d.xvg.all_data_450micro' %(dir,res_name1,res_id1))
+		filename_id2 = glob.glob('%s%s???%d.xvg.all_data_450micro' %(dir,res_name2,res_id2))
+		print filename_id1
 
-		filename_j = glob.glob('%s' %dir +'%s' %res_name2 + '???' + string_residue_counter_j+ '.xvg.all_data_450micro')
-
-		if	filename_i and filename_j:
-			filepointer_i = open(filename_i[0],"r")
-			phi_i = numpy.loadtxt(filepointer_i,usecols=(1,),skiprows=skiprows)	  # getting just the angles from the filepointer file
-			filepointer_j = open(filename_j[0],"r")
-			phi_j = numpy.loadtxt(filepointer_j,usecols=(1,),skiprows=skiprows)	 # getting just the angles from the filepointer file
+		if	filename_id1 and filename_id2:
+			dihedral_id1 = numpy.loadtxt(filename_id1[0],usecols=(1,),skiprows=skiprows)	  # getting just the angles from the filepointer file
+			dihedral_id2 = numpy.loadtxt(filename_id2[0],usecols=(1,),skiprows=skiprows)	 # getting just the angles from the filepointer file
 			if shuffle:
-				phi_i = numpy.random.permutation(phi_i)
-				phi_j = numpy.random.permutation(phi_j)
-			else:
-				return 0.0
+				dihedral_id1 = numpy.random.permutation(dihedral_id1)
+				dihedral_id2 = numpy.random.permutation(dihedral_id2)
+		else:
+			return 0.0
 	if test:
-		phi_i = numpy.random.normal(loc=0.0,scale=1.0,size=1000)
-		phi_j = numpy.random.normal(loc=0.0,scale=1.0,size=1000)
-		phi_i_range=[-3,3]
-		phi_j_range=[-3,3]
-#The magic begins here
-#the mutual information is defined as the 2d sum of joint probability of x,y multiplied by the log(joint/marginal probabilites probabilities)
-	(H,x,y) = numpy.histogram2d(phi_i,phi_j,bins=bin_n,range=[phi_i_range, phi_j_range],normed=True)
-	(y_n,bins) = numpy.histogram(phi_i,bins=x,normed=True)
-	(x_n,bins) = numpy.histogram(phi_j,bins=y,normed=True)
-	dx=bins[1]-bins[0]
-	(x_n, y_n) = numpy.meshgrid(x_n, y_n)
+		res_id1_range=[-3,3]
+		res_id2_range=[-3,3]
+		dihedral_id1 = numpy.random.normal(loc=0.0,scale=1.0,size=10000)
+		dihedral_id2 = numpy.random.normal(loc=0.0,scale=1.0,size=10000)
+#The magic begins here:The mutual information is defined as the 2d	sum of joint probability of x,y multiplied by the log(joint/marginal probabilites probabilities)
+
 	
-	mutual = numpy.nansum((H*dx*dx)*numpy.log(H/(x_n*y_n)))
+	(joint_pdf_bin_count,id1_bin_edges,id2_bin_edges) = numpy.histogram2d(dihedral_id1,dihedral_id2,bins=bin_n,range=[res_id1_range, res_id2_range],normed=False)
+	
+	dihedral_id1_count=numpy.sum(joint_pdf_bin_count,axis=0)
+	dihedral_id2_count=numpy.sum(joint_pdf_bin_count,axis=1)
+	
+	dx=id1_bin_edges[1]-id1_bin_edges[0]
+	N=len(dihedral_id1)
+	H_x=-numpy.nansum((dihedral_id1_count/N) *numpy.log(dihedral_id1_count/N))+numpy.log(dx)
+	H_y=-numpy.nansum((dihedral_id2_count/N) *numpy.log(dihedral_id2_count/N))+numpy.log(dx)
+	H_x_y=-numpy.nansum((joint_pdf_bin_count/N) *numpy.log(joint_pdf_bin_count/N))+numpy.log(dx*dx)
+	
+	mutual=H_x+H_y-H_x_y
 	
 	if not test:
 		return mutual
 	if test:
-		x_n=x_n[0][:]
-		H_x=-numpy.nansum(x_n*dx*numpy.log(x_n*dx))+numpy.log(dx)
 		print H_x
-		cov,p_value = pearsonr(phi_i,phi_j)
-		print "The Pearson Correlation Coefficient is:",cov	,p_value
-		print "The Mutual Information should be",(-0.5*numpy.log(1-cov**2)), "and the number calculated is",mutual, "with a difference of", ((-0.5*numpy.log(1-cov**2))- mutual) 
-		
+		det=numpy.linalg.det(numpy.cov(dihedral_id1,dihedral_id2))
+		print "The analytical solution for joint entropy is ",(0.5*numpy.log(det * (2*numpy.pi*numpy.e)**2))
+		print "The calculated joint entropy is",H_x_y
+		print "The Mutual Information should be", ((0.5*numpy.log(2*numpy.pi*numpy.e))+(0.5*numpy.log(2*numpy.pi*numpy.e)) -(0.5*numpy.log(det * (2*numpy.pi*numpy.e)**2))), "and the number calculated is",mutual
+#		
 
 def main(dir,total_n_residues,n_iterations,skiprows,bin_n, test):
-	olderr = numpy.seterr(all='ignore')	
+	olderr = numpy.seterr(all='ignore') 
 	c=Client(profile='default')
-	dihedral_names = ['chi1','chi2','chi3','phi','psi']
+	dihedral_names = ['phi','psi']
 	jobs = []
 	if test:
 		print "TESTING BEGINNING:"
 		print"Testing the System by calculating the entropy and mutual information for two normal distributions centred around 0 and 1 with std. dev. of1.The entropy for a single distribution should analyticaly be", (0.5*numpy.log(2*numpy.pi*numpy.e)),"it is calculated as"
 		mutual_information_from_files('junk',1,'junk',1,True,dir,skiprows,bin_n,True)
 		print "TESTING FINISHED"
-	sys.exit()
+		sys.exit()
 	for id1 in range(1, total_n_residues):
 		for id2 in range(id1, total_n_residues):
 			for ic in range(0, n_iterations):
@@ -103,15 +106,15 @@ def main(dir,total_n_residues,n_iterations,skiprows,bin_n, test):
 					for name2 in dihedral_names[i:]:
 						# construct the jobs
 						if ic == 0:
-							job = (name1, id1, name2, id2, False,dir,skiprows,bin_n)
+							job = (name1, id1, name2, id2, False,dir,skiprows,bin_n,False)
 						else:
-							job = (name1, id1, name2, id2, True,dir,skiprows,bin_n)
+							job = (name1, id1, name2, id2, True,dir,skiprows,bin_n,False)
 						jobs.append(job)
 	result = dview.map(mutual_information_from_files, *zip(*jobs))
 	result.wait()
 	all_mutuals = result.get()
 	grids = {}
-
+	print all_mutuals
 	for i, job in enumerate(jobs):
 		name1 = job[0]
 		id1 = job[1]
@@ -153,15 +156,14 @@ def main(dir,total_n_residues,n_iterations,skiprows,bin_n, test):
 	numpy.savetxt(file, final_grid)
 
 
-
 def parse_commandline():
 	parser = optparse.OptionParser()
 	parser.add_option('-d', '--directory', dest='dir',default="../", help='directory with chi1,phi,psi files')
 	parser.add_option('-t','--total_residues',dest='t',type="int",help='total		number of residues')
- 	parser.add_option('-i', '--total_iterations', dest='i', type="int", default=1, help='	total iterations')
+	parser.add_option('-i', '--total_iterations', dest='i', type="int", default=1, help='	total iterations')
 	parser.add_option('--test', dest='test', default=0, help='test the code')
 	parser.add_option('-s', '--skip_rows', dest='s',type='int', default=0,help='skip rows')
-	parser.add_option('-b', '--bins',dest='bin_n', type='int', default=20, help='The number of Bins used to bin data(Default 20). Too few bins can lead to underestimation of mutual information')
+	parser.add_option('-b', '--bins',dest='bin_n', type='int', default=24, help='The number of Bins used to bin data(Default 24). Too few bins can lead to underestimation of mutual information')
 	(options, args) = parser.parse_args()
 	return (options, args)
 
