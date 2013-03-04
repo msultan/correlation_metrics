@@ -45,9 +45,11 @@ def mutual_information_from_files(res_name1, res_id1, res_name2, res_id2,			shuf
 		res_id2_range=[-180,180]
 		string_residue_counter_i = str(res_id1)
 		string_residue_counter_j = str(res_id2)
+		# example phiALA1.xvg.all_data_450micro
+		
 		filename_id1 = glob.glob('%s%s???%d.xvg.all_data_450micro' %(dir,res_name1,res_id1))
 		filename_id2 = glob.glob('%s%s???%d.xvg.all_data_450micro' %(dir,res_name2,res_id2))
-		print filename_id1
+		return filename_id1, filename_id2
 
 		if	filename_id1 and filename_id2:
 			dihedral_id1 = numpy.loadtxt(filename_id1[0],usecols=(1,),skiprows=skiprows)	  # getting just the angles from the filepointer file
@@ -99,38 +101,43 @@ def main(dir,total_n_residues,n_iterations,skiprows,bin_n, test):
 		mutual_information_from_files('junk',1,'junk',1,True,dir,skiprows,bin_n,True)
 		print "TESTING FINISHED"
 		sys.exit()
-	for id1 in range(1, total_n_residues):
-		for id2 in range(id1, total_n_residues):
-			for ic in range(0, n_iterations):
-				for i, name1 in enumerate(dihedral_names):
-					for name2 in dihedral_names[i:]:
-						# construct the jobs
-						if ic == 0:
-							job = (name1, id1, name2, id2, False,dir,skiprows,bin_n,False)
-						else:
-							job = (name1, id1, name2, id2, True,dir,skiprows,bin_n,False)
-						jobs.append(job)
-	result = dview.map(mutual_information_from_files, *zip(*jobs))
-	result.wait()
-	all_mutuals = result.get()
-	grids = {}
-	print all_mutuals
-	for i, job in enumerate(jobs):
-		name1 = job[0]
-		id1 = job[1]
-		name2 = job[2]
-		id2 = job[3]
-		shuffle = job[4]
-		if shuffle:
-			grid_name = 'grid_ave_'+ (name1) + '_' +(name2)
-			if grid_name not in grids:
-				grids[grid_name] = numpy.zeros(total_n_residues*total_n_residues)
-			grids[grid_name][((id1-1)*total_n_residues)+id2-1] += all_mutuals[i]
-		else:
-			grid_name = 'grid_'+ (name1) + '_' +(name2)
-			if grid_name not in grids:
-				grids[grid_name] = numpy.zeros(total_n_residues*total_n_residues)
-			grids[grid_name][((id1-1)*total_n_residues)+id2-1] = all_mutuals[i]
+	else:
+		for id1 in range(1, total_n_residues):
+			for id2 in range(id1, total_n_residues):
+				for ic in range(0, n_iterations):
+					for i, name1 in enumerate(dihedral_names):
+						for name2 in dihedral_names[i:]:
+							# construct the jobs
+							if ic == 0:
+								job = (name1, id1, name2, id2, False,dir,skiprows,bin_n,False)
+							else:
+								job = (name1, id1, name2, id2, True,dir,skiprows,bin_n,False)
+							jobs.append(job)
+		#pprint.pprint(jobs)
+		#glob.glob('%s%s???%d.xvg.all_data_450micro' %(dir,res_name1,res_id1))
+		file=glob.glob('%s%s???%d.xvg.all_data_450micro',%(dir,name1,id1))
+		print file
+		result = dview.map(mutual_information_from_files, *zip(*jobs))
+		result.wait()
+		all_mutuals = result.get()
+		grids = {}
+		print all_mutuals
+		for i, job in enumerate(jobs):
+			name1 = job[0]
+			id1 = job[1]
+			name2 = job[2]
+			id2 = job[3]
+			shuffle = job[4]
+			if shuffle:
+				grid_name = 'grid_ave_'+ (name1) + '_' +(name2)
+				if grid_name not in grids:
+					grids[grid_name] = numpy.zeros(total_n_residues*total_n_residues)
+				grids[grid_name][((id1-1)*total_n_residues)+id2-1] += all_mutuals[i]
+			else:
+				grid_name = 'grid_'+ (name1) + '_' +(name2)
+				if grid_name not in grids:
+					grids[grid_name] = numpy.zeros(total_n_residues*total_n_residues)
+				grids[grid_name][((id1-1)*total_n_residues)+id2-1] = all_mutuals[i]
 
 #Notes
 #the [((id1-1)*total_n_residues)+id2-1] index compresses a 2d array into a 1d array
@@ -139,21 +146,21 @@ def main(dir,total_n_residues,n_iterations,skiprows,bin_n, test):
 #n,n is stored in(n*(n-1)+n-1)
 
 
-	final_grid=numpy.zeros(((total_n_residues),(total_n_residues)))
-	for i, name1 in enumerate(dihedral_names):
-		for name2 in dihedral_names[i:]:
-			grid_name_1 = 'grid_'+ name1+ '_' +name2
-			grid_name_2 = 'grid_ave_'+ name1 + '_' +name2
-			for id1 in range(1, total_n_residues):
-				for id2 in range(id1, total_n_residues):
-					if n_iterations > 1:
-						final_grid[id1-1][id2-1] += grids[grid_name_1][((id1-1)*total_n_residues)+id2-1] - grids[grid_name_2][((id1-1)*total_n_residues)+id2-1]/n_iterations
-						final_grid[id2-1][id1-1] = final_grid[id1-1][id2-1]
-					else:
-						final_grid[id1-1][id2-1] += grids[grid_name_1][((id1-1)*total_n_residues)+id2-1]
-						final_grid[id2-1][id1-1] = final_grid[id1-1][id2-1]
-	file=open('%s'%dir+'mut-inf-mat.txt', 'w')
-	numpy.savetxt(file, final_grid)
+		final_grid=numpy.zeros(((total_n_residues),(total_n_residues)))
+		for i, name1 in enumerate(dihedral_names):
+			for name2 in dihedral_names[i:]:
+				grid_name_1 = 'grid_'+ name1+ '_' +name2
+				grid_name_2 = 'grid_ave_'+ name1 + '_' +name2
+				for id1 in range(1, total_n_residues):
+					for id2 in range(id1, total_n_residues):
+						if n_iterations > 1:
+							final_grid[id1-1][id2-1] += grids[grid_name_1][((id1-1)*total_n_residues)+id2-1] - grids[grid_name_2][((id1-1)*total_n_residues)+id2-1]/n_iterations
+							final_grid[id2-1][id1-1] = final_grid[id1-1][id2-1]
+						else:
+							final_grid[id1-1][id2-1] += grids[grid_name_1][((id1-1)*total_n_residues)+id2-1]
+							final_grid[id2-1][id1-1] = final_grid[id1-1][id2-1]
+		file=open('%s'%dir+'mut-inf-mat.txt', 'w')
+		numpy.savetxt(file, final_grid)
 
 
 def parse_commandline():
