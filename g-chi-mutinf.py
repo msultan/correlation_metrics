@@ -168,7 +168,7 @@ def main(dir,total_n_residues,n_iterations,skiprows,bin_n, test):
 # #for example, 1,1 is stored in (0*n+0)
 # #1,n is stored in (0+n-1)
 # #n,n is stored in(n*(n-1)+n-1)
-# 
+# Random text
 # 
 # 		final_grid=numpy.zeros(((total_n_residues),(total_n_residues)))
 # 		for i, name1 in enumerate(dihedral_names):
