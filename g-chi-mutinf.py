@@ -14,10 +14,26 @@ from IPython.parallel import Client
 from collections import defaultdict
 import sys
 import scipy
-
+import string
 client = parallel.Client(profile='default')
 lbview = client.load_balanced_view()
 dview = client[:]
+
+import time                                                
+
+def timeit(method):
+
+    def timed(*args, **kw):
+        ts = time.time()
+        result = method(*args, **kw)
+        te = time.time()
+
+        print 'Ran %r residue pairs in %2.2f sec' % \
+              (options.t, te-ts)
+        return result
+
+    return timed
+
 
 def mutual_information_from_files(res_name1, res_id1, res_name2, res_id2,			shuffle, dir, skiprows,bin_n, test):
 
@@ -43,14 +59,10 @@ def mutual_information_from_files(res_name1, res_id1, res_name2, res_id2,			shuf
 	if not test:
 		res_id1_range=[-180,180]
 		res_id2_range=[-180,180]
-		string_residue_counter_i = str(res_id1)
-		string_residue_counter_j = str(res_id2)
-		# example phiALA1.xvg.all_data_450micro
-		
-		filename_id1 = glob.glob('%s%s???%d.xvg.all_data_450micro' %(dir,res_name1,res_id1))
-		filename_id2 = glob.glob('%s%s???%d.xvg.all_data_450micro' %(dir,res_name2,res_id2))
-		return filename_id1, filename_id2
+		# example file namephiALA1.xvg.all_data_450micro
 
+		filename_id1 = glob.glob('%s%s???%d.*' %(dir,res_name1,res_id1))
+		filename_id2 = glob.glob('%s%s???%d.*' %(dir,res_name2,res_id2))
 		if	filename_id1 and filename_id2:
 			dihedral_id1 = numpy.loadtxt(filename_id1[0],usecols=(1,),skiprows=skiprows)	  # getting just the angles from the filepointer file
 			dihedral_id2 = numpy.loadtxt(filename_id2[0],usecols=(1,),skiprows=skiprows)	 # getting just the angles from the filepointer file
@@ -89,11 +101,11 @@ def mutual_information_from_files(res_name1, res_id1, res_name2, res_id2,			shuf
 		print "The calculated joint entropy is",H_x_y
 		print "The Mutual Information should be", ((0.5*numpy.log(2*numpy.pi*numpy.e))+(0.5*numpy.log(2*numpy.pi*numpy.e)) -(0.5*numpy.log(det * (2*numpy.pi*numpy.e)**2))), "and the number calculated is",mutual
 #		
-
+@timeit
 def main(dir,total_n_residues,n_iterations,skiprows,bin_n, test):
 	olderr = numpy.seterr(all='ignore') 
 	c=Client(profile='default')
-	dihedral_names = ['phi','psi']
+	dihedral_names = ['chi1','chi2','chi3','phi','psi',]
 	jobs = []
 	if test:
 		print "TESTING BEGINNING:"
@@ -102,63 +114,75 @@ def main(dir,total_n_residues,n_iterations,skiprows,bin_n, test):
 		print "TESTING FINISHED"
 		sys.exit()
 	else:
-		for id1 in range(1, total_n_residues):
-			for id2 in range(id1, total_n_residues):
+		for id1 in range(1, total_n_residues+1):
+			for id2 in range(id1, total_n_residues+1):
 				for ic in range(0, n_iterations):
 					for i, name1 in enumerate(dihedral_names):
-						for name2 in dihedral_names[i:]:
+						for name2 in dihedral_names:
 							# construct the jobs
 							if ic == 0:
 								job = (name1, id1, name2, id2, False,dir,skiprows,bin_n,False)
 							else:
 								job = (name1, id1, name2, id2, True,dir,skiprows,bin_n,False)
 							jobs.append(job)
-		#pprint.pprint(jobs)
-		#glob.glob('%s%s???%d.xvg.all_data_450micro' %(dir,res_name1,res_id1))
-		file=glob.glob('%s%s???%d.xvg.all_data_450micro',%(dir,name1,id1))
-		print file
 		result = dview.map(mutual_information_from_files, *zip(*jobs))
 		result.wait()
 		all_mutuals = result.get()
 		grids = {}
-		print all_mutuals
-		for i, job in enumerate(jobs):
+
+		final_grid = numpy.zeros(((total_n_residues),(total_n_residues)))
+		average_grid = numpy.zeros(((total_n_residues),(total_n_residues)))
+		for i,job in enumerate(jobs):
 			name1 = job[0]
 			id1 = job[1]
 			name2 = job[2]
 			id2 = job[3]
 			shuffle = job[4]
 			if shuffle:
-				grid_name = 'grid_ave_'+ (name1) + '_' +(name2)
-				if grid_name not in grids:
-					grids[grid_name] = numpy.zeros(total_n_residues*total_n_residues)
-				grids[grid_name][((id1-1)*total_n_residues)+id2-1] += all_mutuals[i]
+				average_grid[id1-1][id2-1] += all_mutuals[i]
+				average_grid[id2-1][id1-1] += all_mutuals[i]
 			else:
-				grid_name = 'grid_'+ (name1) + '_' +(name2)
-				if grid_name not in grids:
-					grids[grid_name] = numpy.zeros(total_n_residues*total_n_residues)
-				grids[grid_name][((id1-1)*total_n_residues)+id2-1] = all_mutuals[i]
-
-#Notes
-#the [((id1-1)*total_n_residues)+id2-1] index compresses a 2d array into a 1d array
-#for example, 1,1 is stored in (0*n+0)
-#1,n is stored in (0+n-1)
-#n,n is stored in(n*(n-1)+n-1)
-
-
-		final_grid=numpy.zeros(((total_n_residues),(total_n_residues)))
-		for i, name1 in enumerate(dihedral_names):
-			for name2 in dihedral_names[i:]:
-				grid_name_1 = 'grid_'+ name1+ '_' +name2
-				grid_name_2 = 'grid_ave_'+ name1 + '_' +name2
-				for id1 in range(1, total_n_residues):
-					for id2 in range(id1, total_n_residues):
-						if n_iterations > 1:
-							final_grid[id1-1][id2-1] += grids[grid_name_1][((id1-1)*total_n_residues)+id2-1] - grids[grid_name_2][((id1-1)*total_n_residues)+id2-1]/n_iterations
-							final_grid[id2-1][id1-1] = final_grid[id1-1][id2-1]
-						else:
-							final_grid[id1-1][id2-1] += grids[grid_name_1][((id1-1)*total_n_residues)+id2-1]
-							final_grid[id2-1][id1-1] = final_grid[id1-1][id2-1]
+				final_grid[id1-1][id2-1] += all_mutuals[i]
+				final_grid[id2-1][id1-1] += all_mutuals[i]
+		
+		final_grid=final_grid-(average_grid/n_iterations)		
+# 		for i, job in enumerate(jobs):
+# 			name1 = job[0]
+# 			id1 = job[1]
+# 			name2 = job[2]
+# 			id2 = job[3]
+# 			shuffle = job[4]
+# 			if shuffle:
+# 				grid_name = 'grid_ave_'+ (name1) + '_' +(name2)
+# 				if grid_name not in grids:
+# 					grids[grid_name] = numpy.zeros(total_n_residues*total_n_residues)
+# 				grids[grid_name][((id1-1)*total_n_residues)+id2-1] += all_mutuals[i]
+# 			else:
+# 				grid_name = 'grid_'+ (name1) + '_' +(name2)
+# 				if grid_name not in grids:
+# 					grids[grid_name] = numpy.zeros(total_n_residues*total_n_residues)
+# 				grids[grid_name][((id1-1)*total_n_residues)+id2-1] = all_mutuals[i]
+# 
+# #Notes
+# #the [((id1-1)*total_n_residues)+id2-1] index compresses a 2d array into a 1d array
+# #for example, 1,1 is stored in (0*n+0)
+# #1,n is stored in (0+n-1)
+# #n,n is stored in(n*(n-1)+n-1)
+# 
+# 
+# 		final_grid=numpy.zeros(((total_n_residues),(total_n_residues)))
+# 		for i, name1 in enumerate(dihedral_names):
+# 			for name2 in dihedral_names[i:]:
+# 				grid_name_1 = 'grid_'+ name1+ '_' +name2
+# 				grid_name_2 = 'grid_ave_'+ name1 + '_' +name2
+# 				for id1 in range(1, total_n_residues):
+# 					for id2 in range(id1, total_n_residues):
+# 						if n_iterations > 1:
+# 							final_grid[id1-1][id2-1] += grids[grid_name_1][((id1-1)*total_n_residues)+id2-1] - grids[grid_name_2][((id1-1)*total_n_residues)+id2-1]/n_iterations
+# 							final_grid[id2-1][id1-1] = final_grid[id1-1][id2-1]
+# 						else:
+# 							final_grid[id1-1][id2-1] += grids[grid_name_1][((id1-1)*total_n_residues)+id2-1]
+# 							final_grid[id2-1][id1-1] = final_grid[id1-1][id2-1]
 		file=open('%s'%dir+'mut-inf-mat.txt', 'w')
 		numpy.savetxt(file, final_grid)
 
@@ -169,8 +193,8 @@ def parse_commandline():
 	parser.add_option('-t','--total_residues',dest='t',type="int",help='total		number of residues')
 	parser.add_option('-i', '--total_iterations', dest='i', type="int", default=1, help='	total iterations')
 	parser.add_option('--test', dest='test', default=0, help='test the code')
-	parser.add_option('-s', '--skip_rows', dest='s',type='int', default=0,help='skip rows')
-	parser.add_option('-b', '--bins',dest='bin_n', type='int', default=24, help='The number of Bins used to bin data(Default 24). Too few bins can lead to underestimation of mutual information')
+	parser.add_option('-s', '--skip_rows', dest='s',type='int', default=0,help='how many rows to skip')
+	parser.add_option('-b', '--bins',dest='bin_n', type='int', default=24, help='The number of Bins used to bin data(Default 24). Too few bins can lead to problems')
 	(options, args) = parser.parse_args()
 	return (options, args)
 
