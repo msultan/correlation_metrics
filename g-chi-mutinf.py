@@ -125,10 +125,19 @@ def main(dir,total_n_residues,n_iterations,skiprows,bin_n, test):
 							else:
 								job = (name1, id1, name2, id2, True,dir,skiprows,bin_n,False)
 							jobs.append(job)
-		result = dview.map(mutual_information_from_files, *zip(*jobs))
-		result.wait()
-		all_mutuals = result.get()
-		grids = {}
+		view = c.load_balanced_view()
+		async_results = []
+		for i,job in enumerate(jobs):
+			ar = view.apply_async(mutual_information_from_files,job)
+			asyn_results.append(ar)
+		print("Submitted:",len(asyn_results))
+		c.wait(asyn_results)
+		results=[ar.get() for ar in async_results]
+			
+		#result = dview.map(mutual_information_from_files, *zip(*jobs))
+		#result.wait()
+		#all_mutuals = result.get()
+		#grids = {}
 
 		final_grid = numpy.zeros(((total_n_residues),(total_n_residues)))
 		average_grid = numpy.zeros(((total_n_residues),(total_n_residues)))
