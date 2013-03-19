@@ -15,11 +15,6 @@ from collections import defaultdict
 import sys
 import scipy
 import string
-client = parallel.Client(profile='default')
-lbview = client.load_balanced_view()
-dview = client[:]
-
-import time                                                
 
 def timeit(method):
 
