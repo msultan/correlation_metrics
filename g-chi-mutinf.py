@@ -15,6 +15,14 @@ from collections import defaultdict
 import sys
 import scipy
 import string
+<<<<<<< HEAD
+=======
+
+
+
+
+import time                                                
+>>>>>>> 73f072588370ee8f55c43f69e4a08ea4edd47e2f
 
 def timeit(method):
 
@@ -100,7 +108,7 @@ def mutual_information_from_files(res_name1, res_id1, res_name2, res_id2,			shuf
 def main(dir,total_n_residues,n_iterations,skiprows,bin_n, test):
 	olderr = numpy.seterr(all='ignore') 
 	c=Client(profile='default')
-	dihedral_names = ['chi1','chi2','chi3','phi','psi',]
+	dihedral_names = ['chi1','chi2','chi3','phi','psi']
 	jobs = []
 	if test:
 		print "TESTING BEGINNING:"
@@ -113,27 +121,27 @@ def main(dir,total_n_residues,n_iterations,skiprows,bin_n, test):
 			for id2 in range(id1, total_n_residues+1):
 				for ic in range(0, n_iterations):
 					for i, name1 in enumerate(dihedral_names):
-						for name2 in dihedral_names:
+						for name2 in dihedral_names[i:]:
 							# construct the jobs
 							if ic == 0:
 								job = (name1, id1, name2, id2, False,dir,skiprows,bin_n,False)
 							else:
 								job = (name1, id1, name2, id2, True,dir,skiprows,bin_n,False)
 							jobs.append(job)
+		                print "Running on:",len(c.ids)
 		view = c.load_balanced_view()
-		async_results = []
-		for i,job in enumerate(jobs):
-			ar = view.apply_async(mutual_information_from_files,job)
-			asyn_results.append(ar)
-		print("Submitted:",len(asyn_results))
-		c.wait(asyn_results)
-		results=[ar.get() for ar in async_results]
-			
-		#result = dview.map(mutual_information_from_files, *zip(*jobs))
-		#result.wait()
-		#all_mutuals = result.get()
-		#grids = {}
-
+                #async_results = []
+                #for i, job in enumerate(jobs):
+# ar = view.apply_async(mutual_information_from_files,*job)
+                # async_results.append(ar)
+                #print "Submitted:",len(async_results),"Jobs"
+                #c.wait(async_results)
+                #all_mutuals=[ar.get() for ar in async_results]
+		result = view.map_async(mutual_information_from_files, *zip(*jobs))
+		result.wait()
+		all_mutuals = result.get()
+		grids = {}
+		
 		final_grid = numpy.zeros(((total_n_residues),(total_n_residues)))
 		average_grid = numpy.zeros(((total_n_residues),(total_n_residues)))
 		for i,job in enumerate(jobs):
