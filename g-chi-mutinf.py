@@ -174,8 +174,6 @@ def main(dir,total_n_residues,n_iterations,skiprows,bin_n, test):
 	jobs = []
 	
 	#grid
-	final_grid = numpy.zeros(((total_n_residues),(total_n_residues)))
-	average_grid = numpy.zeros(((total_n_residues),(total_n_residues)))
 	
 	#time
 	time_jump=3600
@@ -188,6 +186,8 @@ def main(dir,total_n_residues,n_iterations,skiprows,bin_n, test):
 		print "TESTING FINISHED"
 		sys.exit()
 	else:
+		final_grid = numpy.zeros(((total_n_residues),(total_n_residues)))
+		average_grid = numpy.zeros(((total_n_residues),(total_n_residues)))
 		for id1 in range(1, total_n_residues+1):
 			for id2 in range(id1, total_n_residues+1):
 				for ic in range(0, n_iterations):
