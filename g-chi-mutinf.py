@@ -178,7 +178,8 @@ def main(dir,total_n_residues,n_iterations,skiprows,bin_n, test):
 	average_grid = numpy.zeros(((total_n_residues),(total_n_residues)))
 	
 	#time
-	time_cutoff=1
+	time_jump=3600
+	time_cutoff=time_jump
 
 	
 	if test:
@@ -224,7 +225,7 @@ def main(dir,total_n_residues,n_iterations,skiprows,bin_n, test):
 		result = view.map_async(mutual_information_from_files, *zip(*jobs))
 		while not result.ready():
 			if int(time.time()-st) > time_cutoff :
-				time_cutoff=time_cutoff+1
+				time_cutoff=time_cutoff+time_jump
 				print "BACKED UP THE DATA at %d"%(int(time.time()))
  				file=open('%s'%dir+'temp-list.txt','w')
  				for i,r in enumerate(result):
