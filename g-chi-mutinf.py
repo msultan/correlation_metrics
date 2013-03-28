@@ -15,8 +15,45 @@ import sys
 import scipy
 import string
 from tables import *
+import re
+import time	
 
-import time																								 
+
+def grid_writer(job,value,final_grid,average_grid):
+	name1 = job[0]
+	id1 = job[1]
+	name2 = job[2]
+	id2 = job[3]
+	shuffle = job[4]
+	if shuffle:
+		average_grid[id1-1][id2-1] += value
+		if id1 != id2:
+			average_grid[id2-1][id1-1] += value
+	else:
+		final_grid[id1-1][id2-1] += value
+		if id1 != id2:
+			final_grid[id2-1][id1-1] += value
+
+def job_checker(dir,jobs,final_grid,average_grid):
+	completed_jobs=[]
+	if os.path.exists(dir+'temp-list.txt'):
+		file=open(dir+'temp-list.txt','r')
+		print "Previous Checkpoint Found:Pruning job list and writing out the matrix"
+		for line in file:
+			str_line=str(line[1:27]+')')
+			print str_line
+			for i,job in enumerate(jobs):
+			 	if str_line == str(job[:5]):
+					jobs.pop(i)
+					value=re.findall(r"[+-]?(?:\d+.\d+)",line)
+					completed_jobs.append(job)
+					grid_writer(job,float(value[0]),final_grid,average_grid)
+					
+	return jobs 	
+			
+		#do something
+		
+
 
 def create_hd5files_from_xvg(dir,skiprows):
 	filename_list=glob.glob('%s*.xvg.all_data_450micro'%dir)
@@ -68,16 +105,15 @@ def mutual_information_from_files(res_name1, res_id1, res_name2, res_id2,			shuf
 	from scipy.stats.stats import pearsonr
 	import tables
 	#creating a list with job in first column and result in 2nd column, this will be useful in restarting jobs
-	job=(res_name1, res_id1, res_name2, res_id2,		 shuffle, dir, skiprows,bin_n, test)
+	job=(res_name1, res_id1, res_name2, res_id2,		 shuffle, dir, skiprows,bin_n, test)	
 	
 	if not test:
 		res_id1_range=[-180,180]
 		res_id2_range=[-180,180]
 		# example file namephiALA1.xvg.all_data_450micro
 		#f.root.time_dihedral.grid[1]
-		filename_id1 = glob.glob('%s%s???%d.xvg.all_data_450micro.h5' %(dir,res_name1,res_id1))
-		print "LOOOKKKKK HERE",filename_id1
-		filename_id2 = glob.glob('%s%s???%d.*.xvg.all_data_450micro.h5' %(dir,res_name2,res_id2))
+		filename_id1 = glob.glob('%s%s???%d.*.h5' %(dir,res_name1,res_id1))
+		filename_id2 = glob.glob('%s%s???%d.*.h5' %(dir,res_name2,res_id2))
 		if	filename_id1 and filename_id2:
 		
 			f=tables.openFile(filename_id1[0])
@@ -126,9 +162,25 @@ def mutual_information_from_files(res_name1, res_id1, res_name2, res_id2,			shuf
 @timeit
 def main(dir,total_n_residues,n_iterations,skiprows,bin_n, test):
 	olderr = numpy.seterr(all='ignore') 
+	#Setting up the parallel stuff 
 	c=Client(profile='default')
+	print "Running on:",len(c.ids)
+	view = c.load_balanced_view()
+	
+	#dihedral names
 	dihedral_names = ['chi1','chi2','chi3','phi','psi']
+	
+	#final job list. 
 	jobs = []
+	
+	#grid
+	final_grid = numpy.zeros(((total_n_residues),(total_n_residues)))
+	average_grid = numpy.zeros(((total_n_residues),(total_n_residues)))
+	
+	#time
+	time_cutoff=1
+
+	
 	if test:
 		print "TESTING BEGINNING:"
 		mutual_information_from_files('junk',1,'junk',1,True,dir,skiprows,bin_n,True)
@@ -158,37 +210,34 @@ def main(dir,total_n_residues,n_iterations,skiprows,bin_n, test):
 	#run joblist with mapasync
 	#save results every 1 hour
 
-	print jobs
-	print "Running on:",len(c.ids)
-	view = c.load_balanced_view()
-	print "Start"
-	ct=time.time()
-	result = view.map_async(mutual_information_from_files, *zip(*jobs))
-	for i,r in enumerate(result):
-			print r[1]
-	result.wait()
-	all_mutuals = result.get()
-	#all_mutuals[][1], first column is job information, 2nd column is mi
-	grids = {}
-	final_grid = numpy.zeros(((total_n_residues),(total_n_residues)))
-	average_grid = numpy.zeros(((total_n_residues),(total_n_residues)))
-	for i,job in enumerate(jobs):
-		name1 = job[0]
-		id1 = job[1]
-		name2 = job[2]
-		id2 = job[3]
-		shuffle = job[4]
-		if shuffle:
-			average_grid[id1-1][id2-1] += (all_mutuals[i])[1]
-			average_grid[id2-1][id1-1] += (all_mutuals[i])[1]
-		else:
-			final_grid[id1-1][id2-1] += (all_mutuals[i])[1]
-			if id1 != id2:
-				final_grid[id2-1][id1-1] += (all_mutuals[i])[1]
-		
-		final_grid=final_grid-(average_grid/n_iterations) 
-		file=open('%s'%dir+'mut-inf-mat.txt', 'w')
-		numpy.savetxt(file, final_grid)
+# 	fout=open(dir+'temp-list.txt','w')
+# 	for i,job in enumerate(jobs):
+# 		fout.write("%s\n"%(str(job) + '0.233123e-1'))
+# 	fout.close()
+
+	#Checking which jobs have been done already, those results get saved to the \ final matrix for us 
+	
+	jobs=job_checker(dir,jobs,final_grid,average_grid)
+	if len(jobs)>0:
+		print "Start the jobs"
+		st=time.time()
+		result = view.map_async(mutual_information_from_files, *zip(*jobs))
+		while not result.ready():
+			if int(time.time()-st) > time_cutoff :
+				time_cutoff=time_cutoff+1
+				print "BACKED UP THE DATA at %d"%(int(time.time()))
+ 				file=open('%s'%dir+'temp-list.txt','w')
+ 				for i,r in enumerate(result):
+ 					print >>file, r
+ 					
+		result.wait()
+		all_mutuals = result.get()
+		for i,job in enumerate(jobs):
+			grid_writer(job,(all_mutuals[i])[1],final_grid,average_grid)
+			
+	final_grid=final_grid-(average_grid/n_iterations) 
+	file=open('%s'%dir+'mut-inf-mat.txt', 'w')
+	numpy.savetxt(file, final_grid)
 
 
 def parse_commandline():
