@@ -47,7 +47,7 @@ def job_checker(dir,jobs,final_grid,average_grid):
 					jobs.pop(i)
 					value=re.findall(r"[+-]?(?:\d+.\d+)",line)
 					completed_jobs.append(job)
-					grid_writer(job,float(value[0]),final_grid,average_grid)
+					grid_writer(job,float(value[-1]),final_grid,average_grid)
 					
 	return jobs 	
 			
@@ -176,8 +176,7 @@ def main(dir,total_n_residues,n_iterations,skiprows,bin_n, test):
 	#grid
 	
 	#time
-	time_jump=3600
-	time_cutoff=time_jump
+	tj=3600
 
 	
 	if test:
@@ -220,17 +219,17 @@ def main(dir,total_n_residues,n_iterations,skiprows,bin_n, test):
 	
 	jobs=job_checker(dir,jobs,final_grid,average_grid)
 	if len(jobs)>0:
-		print "Start the jobs"
-		st=time.time()
-		result = view.map_async(mutual_information_from_files, *zip(*jobs))
-		while not result.ready():
-			if int(time.time()-st) > time_cutoff :
-				time_cutoff=time_cutoff+time_jump
-				print "BACKED UP THE DATA at %d"%(int(time.time()))
- 				file=open('%s'%dir+'temp-list.txt','w')
- 				for i,r in enumerate(result):
- 					print >>file, r
- 					
+                print "Start the jobs"
+                tc=int(time.time())
+                result = view.map_async(mutual_information_from_files, *zip(*jobs))
+                while ((result.ready()) == False) and (int(time.time()) >= tc):
+                        tc=tc+tj
+                        file=open('%s'%dir+'temp-list.txt','w')
+                        for i,r in enumerate(result):
+                                print >>file, r
+                        file.close()
+                        print "BACKED UP THE DATA at %d"%(int(time.time()))
+
 		result.wait()
 		all_mutuals = result.get()
 		for i,job in enumerate(jobs):
