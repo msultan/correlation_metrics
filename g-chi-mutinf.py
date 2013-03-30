@@ -40,14 +40,16 @@ def job_checker(dir,jobs,final_grid,average_grid):
 		file=open(dir+'temp-list.txt','r')
 		print "Previous Checkpoint Found:Pruning job list and writing out the matrix"
 		for line in file:
-			str_line=str(line[1:27]+')')
+			str_line=str(line[2:28]+')')
 			print str_line
 			for i,job in enumerate(jobs):
 			 	if str_line == str(job[:5]):
+			 		print job[:5]
 					jobs.pop(i)
 					value=re.findall(r"[+-]?(?:\d+.\d+)",line)
+					print value[-1]
 					completed_jobs.append(job)
-					grid_writer(job,float(value[0]),final_grid,average_grid)
+					grid_writer(job,float(value[-1]),final_grid,average_grid)
 					
 	return jobs 	
 			
@@ -163,9 +165,9 @@ def mutual_information_from_files(res_name1, res_id1, res_name2, res_id2,			shuf
 def main(dir,total_n_residues,n_iterations,skiprows,bin_n, test):
 	olderr = numpy.seterr(all='ignore') 
 	#Setting up the parallel stuff 
-	c=Client(profile='default')
-	print "Running on:",len(c.ids)
-	view = c.load_balanced_view()
+	client_list=Client(profile='default')
+	print "Running on:",len(client_list.ids)
+	view = client_list.load_balanced_view()
 	
 	#dihedral names
 	dihedral_names = ['chi1','chi2','chi3','phi','psi']
@@ -175,9 +177,8 @@ def main(dir,total_n_residues,n_iterations,skiprows,bin_n, test):
 	
 	#grid
 	
-	#time
-	time_jump=3600
-	time_cutoff=time_jump
+	#time_jump for saving results in seconds
+	time_jump=3
 
 	
 	if test:
@@ -223,14 +224,28 @@ def main(dir,total_n_residues,n_iterations,skiprows,bin_n, test):
 		print "Start the jobs"
 		st=time.time()
 		result = view.map_async(mutual_information_from_files, *zip(*jobs))
-		while not result.ready():
-			if int(time.time()-st) > time_cutoff :
-				time_cutoff=time_cutoff+time_jump
-				print "BACKED UP THE DATA at %d"%(int(time.time()))
- 				file=open('%s'%dir+'temp-list.txt','w')
- 				for i,r in enumerate(result):
- 					print >>file, r
- 					
+		
+		#create a set of message ids that are still pending
+		pending=set(result.msg_ids)
+		
+		#As long as there are pending jobs,
+		#wait a while for the jobs to finish
+		while pending:
+			try:
+				client_list.wait(pending,time_jump)
+			except parallel.TimeoutError:
+				pass
+		
+			#create a finished set 
+			finished=pending.difference(client_list.outstanding)
+			#update pending if some random job finished just now
+			pending=pending.difference(finished)
+			file=open('%s'%dir+'temp-list.txt','a')
+			for msg_id in finished:
+				single_result=client_list.get_result(msg_id)
+				print >>file, single_result[:]
+			print "BACKED UP THE DATA at %d"%(int(time.time()))
+		 					
 		result.wait()
 		all_mutuals = result.get()
 		for i,job in enumerate(jobs):
