@@ -177,8 +177,13 @@ def main(dir,total_n_residues,n_iterations,skiprows,bin_n, test):
 	
 	#grid
 	
+<<<<<<< HEAD
 	#time_jump for saving results in seconds
 	time_jump=3
+=======
+	#time
+	tj=3600
+>>>>>>> 283aec9534001c5092c6419830fb0e6c42bc9804
 
 	
 	if test:
@@ -245,7 +250,19 @@ def main(dir,total_n_residues,n_iterations,skiprows,bin_n, test):
 				single_result=client_list.get_result(msg_id)
 				print >>file, single_result[:]
 			print "BACKED UP THE DATA at %d"%(int(time.time()))
-		 					
+		 				
+                print "Start the jobs"
+                tc=int(time.time())
+                result = view.map_async(mutual_information_from_files, *zip(*jobs))
+                while ((result.ready()) == False) and (int(time.time()) >= tc):
+                        tc=tc+tj
+                        file=open('%s'%dir+'temp-list.txt','w')
+                        for i,r in enumerate(result):
+                                print >>file, r
+                        file.close()
+                        print "BACKED UP THE DATA at %d"%(int(time.time()))
+
+>>>>>>> 283aec9534001c5092c6419830fb0e6c42bc9804
 		result.wait()
 		all_mutuals = result.get()
 		for i,job in enumerate(jobs):
