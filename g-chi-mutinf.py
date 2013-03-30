@@ -41,7 +41,7 @@ def job_checker(dir,jobs,final_grid,average_grid):
 		print "Previous Checkpoint Found:Pruning job list and writing out the matrix"
 		for line in file:
 			#('phi', 1, 'phi', 1, False)
-			string=re.findall(r"\'[a-z]{3}\'\, [0-9]\, \'[a-z]{3}\'\, [0-9]\, [A-Z,a-z]{4,5}",line)			
+			string=re.findall(r"\'[a-z]{3}\'\, \d+\, \'[a-z]{3}\'\, \d+\, [A-Z,a-z]{4,5}",line)			
 			str_line='('+string[0]+')'
 			print str_line
 			for i,job in enumerate(jobs):
