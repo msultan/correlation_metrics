@@ -41,7 +41,7 @@ def job_checker(dir,jobs,final_grid,average_grid):
 		print "Previous Checkpoint Found:Pruning job list and writing out the matrix"
 		for line in file:
 			#('phi', 1, 'phi', 1, False)
-	        string=re.findall(r"\'[a-z,1-3]{3,4}\'\, \d+\, \'[a-z,1-3]{3,4}\'\, \d+\, [A-Z,a-z]{4,5}",line)
+	        string=re.findall(r"\'[a-z,1-4]{3,4}\'\, \d+\, \'[a-z,1-4]{3,4}\'\, \d+\, [A-Z,a-z]{4,5}",line)
             str_line='('+string[0]+')'
 			print str_line
 			for i,job in enumerate(jobs):
@@ -172,7 +172,7 @@ def main(dir,total_n_residues,n_iterations,skiprows,bin_n, test):
 	view = client_list.load_balanced_view()
 	
 	#dihedral names
-	dihedral_names = ['chi1','chi2','chi3','phi','psi']
+	dihedral_names = ['chi1','chi2','chi3','chi4','phi','psi']
 	
 	#final job list. 
 	jobs = []
@@ -180,7 +180,7 @@ def main(dir,total_n_residues,n_iterations,skiprows,bin_n, test):
 	#grid
 	
 	#time_jump for saving results in seconds
-	time_jump=3
+	time_jump=300
 
 	
 	if test:
@@ -246,7 +246,8 @@ def main(dir,total_n_residues,n_iterations,skiprows,bin_n, test):
 			for msg_id in finished:
 				single_result=client_list.get_result(msg_id)
 				print >>file, single_result[:]
-			print "BACKED UP THE DATA at %d"%(int(time.time()))
+			file.close()
+            print "BACKED UP THE DATA at %d"%(int(time.time()))
 		 				
 		result.wait()
 		all_mutuals = result.get()
