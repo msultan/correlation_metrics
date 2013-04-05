@@ -191,28 +191,40 @@ def main(dir,total_n_residues,n_iterations,skiprows,bin_n, test):
 		final_grid = numpy.zeros(((total_n_residues),(total_n_residues)))
 		average_grid = numpy.zeros(((total_n_residues),(total_n_residues)))
 		print "Creating Job List"
-		for id1 in range(1, total_n_residues+1):
-			for id2 in range(id1, total_n_residues+1):
-				for ic in range(0, n_iterations):
-					for i, name1 in enumerate(dihedral_names):
-						filename_id1 = glob.glob('%s%s???%d.*' %(dir,name1,id1))
-						#idea of reading one file before the other is to make this list generation faster. 
-						if filename_id1:
-							for name2 in dihedral_names[i:]:
-								#sanitize list so that only jobs for things that have files takes place
-								filename_id2 = glob.glob('%s%s???%d.*' %(dir,name2,id2))
-								if filename_id2:
-														# construct the jobs
-									if ic == 0:
-										job = (name1, id1, name2, id2, False,dir,skiprows,bin_n,False)
-									else:
-										job = (name1, id1, name2, id2, True,dir,skiprows,bin_n,False)
-									jobs.append(job)							
+		file_name_list=glob.glob('%s*.h5'%dir)
+		for i,file_id1 in enumerate(file_name_list):
+			name1=re.findall("chi1|chi2|chi3|chi4|phi|psi",file_name_list[i])[0]
+			id1=int((re.findall("[A-Z]{3}\d+",file_name_list[i])[0])[3:])
+			for j,file_id2 in enumerate(file_name_list[i:]):
+				name2=re.findall("chi1|chi2|chi3|chi4|phi|psi",\ file_name_list[j])[0]
+				id2=int((re.findall("[A-Z]{3}\d+",file_name_list[j])[0])[3:])
+				for ic in range(0,n_iterations):
+					if ic==0:
+						job=(name1, id1, name2, id2, False,dir,skiprows,bin_n,False)
+					else:
+						job = (name1, id1, name2, id2, True,dir,skiprows,bin_n,False)
+					jobs.append(job)
+			
+# 				
+# 		for id1 in range(1, total_n_residues+1):
+# 			for id2 in range(id1, total_n_residues+1):
+# 				for ic in range(0, n_iterations):
+# 					for i, name1 in enumerate(dihedral_names):
+# 						filename_id1 = glob.glob('%s%s???%d.*' %(dir,name1,id1))
+# 						if filename_id1:
+# 							for name2 in dihedral_names[i:]:
+# 								filename_id2 = glob.glob('%s%s???%d.*'\ %(dir,name2,id2))
+# 								if filename_id2:
+# 									if ic == 0:
+# 										job = (name1, id1, name2, id2, False,dir,skiprows,bin_n,False)
+# 									else:
+# 										job = (name1, id1, name2, id2, True,dir,skiprows,bin_n,False)
+# 									jobs.append(job)							
 	print "Pruning job list"
 	jobs=job_checker(dir,jobs,final_grid,average_grid)
 	if len(jobs)>0:
 		st=time.time()
-		print "Start the jobs with ", len(job),"jobs at",st
+		print "Start the jobs with ", len(jobs),"jobs at",st
 		result = view.map_async(mutual_information_from_files, *zip(*jobs),ordered=False,chunksize=(len(jobs)/len(client_list.ids()))*100)
 		#we will have 100 data chunks as determined by number of jobs and #number of clients
 		print "Jobs Sent ;Waiting on Results Now"
