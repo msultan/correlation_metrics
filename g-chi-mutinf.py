@@ -40,9 +40,8 @@ def job_checker(dir,jobs,final_grid,average_grid):
 		file=open(dir+'temp-list.txt','r')
 		print "Previous Checkpoint Found:Pruning job list and writing out the matrix"
 		for line in file:
-			#('phi', 1, 'phi', 1, False)
-	        string=re.findall(r"\'[a-z,1-4]{3,4}\'\, \d+\, \'[a-z,1-4]{3,4}\'\, \d+\, [A-Z,a-z]{4,5}",line)
-            str_line='('+string[0]+')'
+			string=re.findall(r"\'[a-z,1-4]{3,4}\'\, \d+\, \'[a-z,1-4]{3,4}\'\, \d+\, [A-Z,a-z]{4,5}",line)
+        	str_line='('+string[0]+')'
 			print str_line
 			for i,job in enumerate(jobs):
 			 	if str_line == str(job[:5]):
@@ -191,42 +190,32 @@ def main(dir,total_n_residues,n_iterations,skiprows,bin_n, test):
 	else:
 		final_grid = numpy.zeros(((total_n_residues),(total_n_residues)))
 		average_grid = numpy.zeros(((total_n_residues),(total_n_residues)))
+		print "Creating Job List"
 		for id1 in range(1, total_n_residues+1):
 			for id2 in range(id1, total_n_residues+1):
 				for ic in range(0, n_iterations):
 					for i, name1 in enumerate(dihedral_names):
-						for name2 in dihedral_names[i:]:
+						filename_id1 = glob.glob('%s%s???%d.*' %(dir,name1,id1))
+						#idea of reading one file before the other is to make this list generation faster. 
+						if filename_id1:
+							for name2 in dihedral_names[i:]:
 								#sanitize list so that only jobs for things that have files takes place
-								filename_id1 = glob.glob('%s%s???%d.*' %(dir,name1,id1))
 								filename_id2 = glob.glob('%s%s???%d.*' %(dir,name2,id2))
-								if filename_id1 and filename_id2:
+								if filename_id2:
 														# construct the jobs
 									if ic == 0:
 										job = (name1, id1, name2, id2, False,dir,skiprows,bin_n,False)
 									else:
 										job = (name1, id1, name2, id2, True,dir,skiprows,bin_n,False)
 									jobs.append(job)							
-	#need a restart function
-	#open a tempfile
-	#for every line in that if the jobs match up
-	#append that line to all_results,
-	#pop that job from the job list
-	#run joblist with mapasync
-	#save results every 1 hour
-
-# 	fout=open(dir+'temp-list.txt','w')
-# 	for i,job in enumerate(jobs):
-# 		fout.write("%s\n"%(str(job) + '0.233123e-1'))
-# 	fout.close()
-
-	#Checking which jobs have been done already, those results get saved to the \ final matrix for us 
-	
+	print "Pruning job list"
 	jobs=job_checker(dir,jobs,final_grid,average_grid)
 	if len(jobs)>0:
-		print "Start the jobs"
 		st=time.time()
-		result = view.map_async(mutual_information_from_files, *zip(*jobs))
-		
+		print "Start the jobs with ", len(job),"jobs at",st
+		result = view.map_async(mutual_information_from_files, *zip(*jobs),ordered=False,chunksize=(len(jobs)/len(client_list.ids()))*100)
+		#we will have 100 data chunks as determined by number of jobs and #number of clients
+		print "Jobs Sent ;Waiting on Results Now"
 		#create a set of message ids that are still pending
 		pending=set(result.msg_ids)
 		
@@ -245,7 +234,11 @@ def main(dir,total_n_residues,n_iterations,skiprows,bin_n, test):
 			file=open('%s'%dir+'temp-list.txt','a')
 			for msg_id in finished:
 				single_result=client_list.get_result(msg_id)
-				print >>file, single_result[:]
+                if len(single_result)==1:
+                    print >>file,single_result
+                else:
+                    for single in single_result:
+                    	print >>file, single+"\n"
 			file.close()
             print "BACKED UP THE DATA at %d"%(int(time.time()))
 		 				
