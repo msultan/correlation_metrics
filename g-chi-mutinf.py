@@ -46,10 +46,9 @@ def job_checker(dir,jobs,final_grid,average_grid):
                     print str_line 
 		    print job[:5]
                     jobs.pop(i)
-                    value=re.findall(r"[+-]?(\d+\.\d+([e][+-]\d+)?)",line)
-                    print value[-1]
+		    value=re.search(r"[+-]?(\d+\.\d+([e][+-]?\d+)?)",line).group()
                     completed_jobs.append(job)
-                    grid_writer(job,float(value[-1]),final_grid,average_grid)
+                    grid_writer(job,float(value),final_grid,average_grid)
                     
     return jobs     
             
@@ -116,11 +115,8 @@ def mutual_information_from_files(res_name1, res_id1, res_name2, res_id2,       
         # example file namephiALA1.xvg.all_data_450micro
         #f.root.time_dihedral.grid[1]
         filename_id1 = glob.glob('%s%s???%d.xvg.all_data_450micro.h5' %(dir,res_name1,res_id1))
-        print dir,res_name1,res_id1,filename_id1
 	filename_id2 = glob.glob('%s%s???%d.xvg.all_data_450micro.h5' %(dir,res_name2,res_id2))
 	if  filename_id1 and filename_id2:
-       	    print "opening %s %s" %(filename_id1,filename_id2)
-	    sys.stdout.flush()
             f=tables.openFile(filename_id1[0])
             dihedral_id1=numpy.array(f.root.time.grid[:])
             
@@ -132,6 +128,7 @@ def mutual_information_from_files(res_name1, res_id1, res_name2, res_id2,       
                 dihedral_id2 = numpy.random.permutation(dihedral_id2)
         else:
             return job, 0.0
+	    sys.out.flush()
     if test:
         res_id1_range=[-3,3]
         res_id2_range=[-3,3]
@@ -155,6 +152,7 @@ def mutual_information_from_files(res_name1, res_id1, res_name2, res_id2,       
     
     if not test:
         return job,mutual
+	sys.out.flush()
 
     if test:
         print "Variable                         Analytical           Calculated"
@@ -198,7 +196,7 @@ def main(dir,total_n_residues,n_iterations,skiprows,bin_n, test):
         for i,file_id1 in enumerate(file_name_list):
             name1=re.findall("chi1|chi2|chi3|chi4|phi|psi",file_name_list[i])[0]
             id1=int((re.findall("[A-Z]{3}\d+",file_name_list[i])[0])[3:])
-            for j,file_id2 in enumerate(file_name_list[1020:]):
+            for j,file_id2 in enumerate(file_name_list[i:]):
                 name2=re.findall("chi1|chi2|chi3|chi4|phi|psi",file_name_list[j])[0]
                 id2=int((re.findall("[A-Z]{3}\d+",file_name_list[j])[0])[3:])
                 for ic in range(0,n_iterations):
@@ -227,29 +225,27 @@ def main(dir,total_n_residues,n_iterations,skiprows,bin_n, test):
     if len(jobs)>0:
         st=time.time()
         print "Start the jobs with ", len(jobs),"jobs at",st
-        result = view.map(mutual_information_from_files, *zip(*jobs),ordered=False,chunksize=1)
+        result = view.map(mutual_information_from_files, *zip(*jobs),chunksize=10)
 
         print "Jobs Sent ;Waiting on Results Now"
-        
+       
         pending=set(result.msg_ids)
         
         #As long as there are pending jobs,
         #wait a while for the jobs to finish
         while pending:
             try:
-                client_list.wait(pending,10)
+                client_list.wait(pending,1e-3)
 	    except parallel.TimeoutError:
                 pass
        	    #	print "Here" 
             finished=pending.difference(client_list.outstanding)
             pending=pending.difference(finished)
-
             for msg_id in finished:
-            	print "here now"
 		file=open('%s'%dir+'temp-list.txt','a')
                 ar=client_list.get_result(msg_id)
-		print ar.stdout
 		for (job,mutual) in ar.result:
+			print job, mutual
 			print >> file, job,mutual
 		file.close()
 	
@@ -280,5 +276,5 @@ def parse_commandline():
 
 if __name__ == "__main__":
     (options, args) = parse_commandline()
-    create_hd5files_from_xvg(options.dir,options.s)
+    #create_hd5files_from_xvg(options.dir,options.s)
     main(dir=options.dir, total_n_residues=options.t,n_iterations=options.i,skiprows=options.s,bin_n=options.bin_n, test=options.test)
