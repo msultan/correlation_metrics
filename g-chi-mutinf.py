@@ -67,8 +67,30 @@ def create_hd5files_from_xvg(dir,skiprows):
             grid=h5file.createArray('/time','grid',data)
             h5file.close()
 
-def mutual_information_from_files(res_name1, res_id1, res_name2, res_id2,           shuffle, dir, skiprows,bin_n, test,numWin):
+def average(x):
+    return float(sum(x)) / len(x)	
 
+def pearson_def(x, y):
+    import math
+    assert len(x)==len(y) 
+    n = len(x)
+    assert n > 0
+    avg_x = average(x)
+    avg_y = average(y)
+    diffprod = 0
+    xdiff2 = 0
+    ydiff2 = 0
+    for idx in range(n):
+        xdiff = x[idx] - avg_x
+        ydiff = y[idx] - avg_y
+        diffprod += xdiff * ydiff
+        xdiff2 += xdiff * xdiff
+        ydiff2 += ydiff * ydiff
+
+    return diffprod / math.sqrt(xdiff2 * ydiff2)
+    
+
+def mutual_information_from_files(res_name1, res_id1, res_name2, res_id2,           shuffle, dir, skiprows,bin_n, test,numWin):
     #mutual_information_from_files
     """
     Contact: msultan at stanford dot edu
@@ -86,6 +108,9 @@ def mutual_information_from_files(res_name1, res_id1, res_name2, res_id2,       
     """
     import numpy    #for histogram stuff
     import os
+    import scipy.special as sps
+    import scipy.stats as scipy
+    from scipy.stats.stats import pearsonr
     import glob
     from scipy.stats.stats import pearsonr
     import tables
@@ -96,8 +121,6 @@ def mutual_information_from_files(res_name1, res_id1, res_name2, res_id2,       
     result.append(job)
 
     if not test:
-        res_id1_range=[-180,180]
-        res_id2_range=[-180,180]
             # example file namephiALA1.xvg.all_data_450micro
             #f.root.time_dihedral.grid[1]
         filename_id1 = glob.glob('%s/%s???%d.xvg.all_data_450micro.h5' %(dir,res_name1,res_id1))
@@ -117,14 +140,19 @@ def mutual_information_from_files(res_name1, res_id1, res_name2, res_id2,       
             sys.out.flush()
 	
     if test:
-        res_id1_range=[-3,3]
-        res_id2_range=[-3,3]
-        dihedral_id1 = numpy.random.normal(loc=0.0,scale=1.0,size=10000)
-        dihedral_id2 = numpy.random.normal(loc=0.0,scale=1.0,size=10000)
+		mu1=0.4
+		mu2=0.5
+		kappa1=numpy.random.random()
+		kappa2=numpy.random.random()
+
+		dihedral_id1=57.2957795*numpy.random.vonmises(mu1,kappa1,1000)
+		dihedral_id2=57.2957795*numpy.random.vonmises(mu2,kappa2,1000)
+
 #The magic begins here:The mutual information is defined as the 2d  sum of joint probability of x,y multiplied by the log(joint/marginal probabilites probabilities)
 
     #for windowIndex in range(1,numWin):
-    
+    res_id1_range=[-180,180]
+    res_id2_range=[-180,180]
     
     (joint_pdf_bin_count,id1_bin_edges,id2_bin_edges) = numpy.histogram2d(dihedral_id1[:len(dihedral_id1)],dihedral_id2,bins=bin_n,range=[res_id1_range, res_id2_range],normed=False)
     dihedral_id1_count=numpy.sum(joint_pdf_bin_count,axis=0)
@@ -144,12 +172,20 @@ def mutual_information_from_files(res_name1, res_id1, res_name2, res_id2,       
     	sys.out.flush()
 
     if test:
-        print "Variable                         Analytical           Calculated"
-        print "H(x)                              ",(0.5*numpy.log(2*numpy.pi*numpy.e)), H_x
-        print "H(y)                              ",(0.5*numpy.log(2*numpy.pi*numpy.e)), H_y
-        det=numpy.linalg.det(numpy.cov(dihedral_id1,dihedral_id2))
-        print "H(x,y)                            ",(0.5*numpy.log(det * (2*numpy.pi*numpy.e)**2)),H_x_y
-        print "MI[H(x)+H(y)-H(x,y)]", ((0.5*numpy.log(2*numpy.pi*numpy.e))+(0.5*numpy.log(2*numpy.pi*numpy.e)) -(0.5*numpy.log(det * (2*numpy.pi*numpy.e)**2))),mutual
+    
+        p=pearson_def(dihedral_id1,dihedral_id2)
+        mutual_a=numpy.log(numpy.sqrt(1/(1-p)))
+	H_x_a=numpy.log(2*180*sps.jn(0,kappa1))-kappa1*(sps.jn(1,kappa1)/sps.jn(0,kappa1))
+	H_y_a=numpy.log(2*180*sps.jn(0,kappa2))-kappa2*(sps.jn(1,kappa2)/sps.jn(0,kappa2))
+	H_x_y_a=(0.5*numpy.log(numpy.linalg.det(numpy.cov(dihedral_id1,dihedral_id2))*(2*numpy.pi*numpy.e)**2))
+		##print stuff out
+	print "\nTesting on VonMises Distribution with mu1,mu2,kappa1,kappa2",mu1,mu2,kappa1,kappa2,"with",bin_n,"bins\n"
+	print "Variable","*"*20, "Calculated","*"*20,"Analytical"
+	print "H_x","*"*25,H_x,"*"*20,H_x_a
+	print "H_y","*"*25,H_y,"*"*20,H_y_a
+	print "H_x_y","*"*24,H_x_y,"*"*20,H_x_y_a
+	print "mutual(H_x+H_y-H_x_y)","*"*7,mutual,"*"*15,mutual_a
+	print "\nNote that every now and then the result might be a bit off from the analytical solution due to the inherent randomness in the starting dataset.\n"
 
 def main(dir,total_n_residues,n_iterations,skiprows,bin_n, test,numWin):
     olderr = numpy.seterr(all='ignore') 
@@ -197,7 +233,7 @@ def main(dir,total_n_residues,n_iterations,skiprows,bin_n, test,numWin):
     print "Created",len(jobs),"jobs"
                    
     print "Pruning job list"
-    jobs=job_checker(dir,jobs,final_grid,average_grid)
+    job_checker(dir,jobs,final_grid,average_grid)
     if len(jobs)>0:
         st=time.time()
         print "Start the jobs with ", len(jobs),"jobs at",st
