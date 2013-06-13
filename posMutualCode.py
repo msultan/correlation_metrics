@@ -1,14 +1,21 @@
-def kdistANN(N,ke,data):
+#!/usr/bin/env python
+from __future__ import division
+from scipy import spatial
+from scipy.spatial import KDTree
+import numpy as np 
+import scipy.special
+import numpy as np 
+
+def kdistANN(N,kN,data):
     ##calculate the distance to the kth neighbor for every pt in the dataset 
     #using euclidean distances
-    from scipy import spatial
-    from scipy.spatial import KDTree
-    kdist=numpy.zeros(N)
+
+    kdist=np.zeros(N)
     kdTree = spatial.KDTree(data)
     for i in range(0,N):
         pt=np.array([data[i][0],data[i][1]])
-        temp=kdTree.query(pt,k=ke+1,eps=0,p=2.0)
-        kdist[i]=temp[0][k]
+        temp=kdTree.query(pt,kN+1,eps=0,p=2.0)
+        kdist[i]=temp[0][kN]
 
     return kdist
 
@@ -28,25 +35,25 @@ def count_dist_x(data,kdist,refPt,N):
 
 
 def MIstrict(N,k,kdist,data):
-    import scipy.special
+
 
     out=np.zeros(N)
     #for every pt find its neighbors in x and y regime based on the distance to the
     #kth neighbor
     d=1
-    cdy=cdx=numpy.pi**(d/2)/scipy.special.gamma(1+d/2)/2**d
+    cdy=cdx=np.pi**(d/2.0)/scipy.special.gamma(1+d/2.0)/2.0**d
     d=2
+    cdxy=np.pi**(d/2.0)/scipy.special.gamma(1+d/2.0)/2.0**d
+    correctionFactor=np.log(cdx)+np.log(cdy)-np.log(cdxy)
     
-    cdxy=numpy.pi**(d/2)/scipy.special.gamma(1+d/2)/2**d
     for i in range(0,N):
         nx,ny=count_dist_x(data,kdist[i],data[i],N)
-        out[i]=-scipy.special.psi(nx+1)-scipy.special.psi(ny+1)+log(cdx)+log(cdy)-log(cdxy)
+        out[i]=-scipy.special.psi(nx+1)-scipy.special.psi(ny+1)+correctionFactor
     return out
     
-    
+
 def mutual_nearest_neighbors(N,k,data):
-    #make the tree and calculate the distance to the kth neighbor
+
     kdist=kdistANN(N,k,data)
-    #populate the nx+ny
     out=MIstrict(N,k,kdist,data)
     return np.mean(out)+scipy.special.psi(N)+scipy.special.psi(k)
