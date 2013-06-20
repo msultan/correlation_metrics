@@ -2,39 +2,13 @@
 from __future__ import division
 import posMutualCode
 from posMutualCode import * 
+from testMutualCode import testPositionMutualInformationCode
 import numpy as np
-def testCodeWrapper():
-	import matplotlib.pyplot as mlp
 
-
-	tN=50
-	N=800
-	k=5
-	mean=[3,2]
-	cov=[[1,0.9],[0.9,1]]
-	data=np.zeros((N,2))
-	
-	tD=np.zeros(tN)
-	
-
-	for t in range(tN):
-		#get random data	
-		data=np.random.multivariate_normal(mean,cov,N)
-		mutual=mutual_nearest_neighbors(N,k,data)
-		tD[t]=mutual
-	 
-	det=np.linalg.det(cov)
-	print "Analytical Solution:",-0.5*np.log(det)
-	print 'Average of %d Trial for %d datapoints is %f with standard deviation %f'%(tN,N, np.mean(tD),np.std(tD))
-	mlp.plot(tD)
-	mlp.axhline(-0.5*np.log(det))
-	mlp.show()
-
-	return
-
-def main(assignFile,projectFile,test):
+def positionalMutualCalculator(assignFile,projectFile,gensFile,atomIndices,states):
 	'''
-	Mutual information Calculator for the positional Vectors of a specified residues. This code is based
+	Mutual information Calculator for the positional Vectors of a specified \
+	residues. This code is based
 	of the work of Kraskov,McClendon and Lange. 
 	Parameters:
 	----------
@@ -50,42 +24,134 @@ def main(assignFile,projectFile,test):
 					atom indices to use when calculating distances
 	Output:
 	----------
-	multiple *.dat files which has mutual information for each state in the assignments file
+	multiple *.dat files which has mutual information for \
+	each state in the assignments file
 	'''
 	import msmbuilder as m
+	from msmbuilder import Trajectory
 	import numpy as np
+	import lprmsd
+	import os
+	from collections import defaultdict
+	#Load the Atom Indices 
+	atomIndices=np.loadtxt(options.atomIndices,np.int)
+	print atomIndices,len(atomIndices)
+	# Load the project 
+	prj = m.Project.load_from(projectFile)
 	#load the assignments
-	macroAssignments=m.io.loadh(assignFile)
+	macroAssignments = m.io.loadh(assignFile)
 	#get the actual assignment
-	macroAssignments=macroAssignments['arr_0']
+	macroAssignments = macroAssignments['arr_0']
 
-	macroAssignmentsMax=np.max(macroAssignments)
-
-	for i in range(0,macroAssignmentsMax+1):
-		print "Currently Calculating Mutual for Start %d",i
-		#macroAssignmentsIndex=np.where(macroAssignments==i)
+	macroAssignmentsMax = np.max(macroAssignments)
 
 
-	return
+	#eventually Need to update this so that only certain states are tabulated
+	
+	if -1 == states:
+		print "Calculating Mutual Information for all states"
+		#currently going to calculate MI for all states
+		states = np.arange(macroAssignmentsMax+1)
+
+	#setting up Lee Ping's Metric which None for permute indices and \
+	#alternative atom indices
+	rmsd_metric=lprmsd.LPRMSD(atomIndices,None,None)
+
+	#loading the generator file and creating a trajectory out of it.
+	if os.path.exists(gensFile):
+		gensTraj = Trajectory.load_trajectory_file(gensFile)
+		pgenTraj = rmsd_metric.prepare_trajectory(gensTraj)
+
+
+
+	#creating an inverse assignment dictionary to save all \
+	#frames from all trajectories to a single 
+	stateAssignmentDict=defaultdict(lambda:[])
+
+	#{key:value} where key is the state and value is a \
+	#list of tuple where each tuple has form(trjIndex,frmIndex)
+
+	for trjIndex in xrange(macroAssignments.shape[0]):
+		for frmIndex in xrange(macroAssignments.shape[1]):
+			stateAssignmentDict[macroAssignments[trjIndex,frmIndex]]\
+			.append((trjIndex,frmIndex))
+
+	
+	#loop through the states
+	for s in states:
+		mMat=np.zeros((len(atomIndices),len(atomIndices)))
+		print "Calculating MI for state %s"%s
+		if len(stateAssignmentDict[s])==0:
+			raise ValueError('No Assignments to state %s'%s)
+		#getting all conformation
+		confs=stateAssignmentDict[s]
+		
+		#creating a frame dictionary so that i can pull those.
+		FrameDict = {}
+		for (traj, frame) in confs:
+			FrameDict.setdefault(traj,[]).append(frame)
+		
+		#getting an empty traj
+		clusterTraj=prj.empty_traj()
+		#getting a set of what trajectories we need to query
+		TrajNums=set(i[0] for i in confs)
+
+		#getting only the frames we want for this state
+		for currTrj in TrajNums:
+			T=prj.load_traj(currTrj)[np.array(FrameDict[currTrj])]
+			clusterTraj += T
+
+		print "Loaded %i conformations"%len(clusterTraj)
+		#Now, we should have clusterTraj, we can prepare it
+		pclusterTraj=rmsd_metric.prepare_trajectory(clusterTraj)
+		rmsd,xout=rmsd_metric.one_to_all_aligned(pgenTraj, pclusterTraj, s)
+
+		xout=xout-pgenTraj[s]['XYZList']
+		N=len(xout)
+		k=5
+		for indexTracker,atomindexI in enumerate(atomIndices):
+			for indexTracker2,atomindexJ in enumerate(atomIndices):
+				print atomindexI,atomindexJ
+				data=np.zeros((N,6))
+				data[:,:3]=xout[:,atomindexI]
+				data[:,3:]=xout[:,atomindexJ]
+				mMat[indexTracker][indexTracker2] = mutual_nearest_neighbors(N,k,data)
+		np.savetxt('%s.dat'%s,mMat)
+	return 0
 
 
 def parse_commandline():
 	import os
 	import optparse
 	parser = optparse.OptionParser()
-	parser.add_option('-a', '--assignmentFile', dest='assignFile', help='Assignment File')
-	parser.add_option('-p','--projectFile',dest='projectFile',help='Project File')
-	parser.add_option('-i', '--total_iterations', dest='i', type="int", default=1, help=' total iterations')
-	parser.add_option('--test', dest='test', default=0, help='test the code')
-	parser.add_option('-s', '--skip_rows', dest='s',type='int', default=0,help='how many rows to skip')
-	parser.add_option('-b', '--bins',dest='bin_n', type='int', default=24, help='The number of Bins used to bin data(Default 24). Too few bins can lead to problems')
-	parser.add_option('-w', '--windows',dest='numWin', type='int', default=1, help='Whether or not to use windows in the calculation')
+	parser.add_option('--test', dest='test', default=0, \
+					help='test the code')
+	parser.add_option('-a', '--assignmentFile',default='Macro4/MacroAssignments.h5'\
+					,dest='assignFile',help='Assignment File')
+	parser.add_option('-p','--projectFile',dest='projectFile',\
+					help='Project File',default='ProjectInfo.h5')
+	parser.add_option('-g','--genFile',default='Data/Gens.lh5',\
+					help='The Generator File that defines the "ensemble average"')
+	parser.add_option('-i', '--total_iterations', dest='i', type="int", \
+					default=1, help=' total iterations')
+	parser.add_option('-s', '--states',dest='states', nargs="+", \
+					default=-1, help=' States to Use to Calculate MI')
+	parser.add_option('--atomIndices',  default='AtomIndices.dat',\
+					help='atomIndices to align against and calculate the MI for')
+	parser.add_option('-w', '--windows',dest='numWin', type='int', default=1,\
+					help='Whether or not to use windows in the calculation')
 	(options, args) = parser.parse_args()
 	return (options, args)
 
 if __name__ == '__main__':
 	(options, args) = parse_commandline()
+
+
 	if (options.test): 
-		testCodeWrapper()
+		testPositionMutualInformationCode()
 	else:
-		main(assignFile=options.assignFile,projectFile=options.projectFile)
+		positionalMutualCalculator(options.assignFile,options.projectFile,options.genFile,\
+			options.atomIndices,options.states)
+
+
+
