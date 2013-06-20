@@ -33,9 +33,19 @@ def positionalMutualCalculator(assignFile,projectFile,gensFile,atomIndices,state
 	import lprmsd
 	import os
 	from collections import defaultdict
+	from IPython import parallel
+	#setting up the MAP
+	client_list=parallel.Client(profile='mpi')
+   	print "Running on:",len(client_list.ids)
+  	view = client_list.load_balanced_view()
+
 	#Load the Atom Indices 
 	atomIndices=np.loadtxt(options.atomIndices,np.int)
-	print atomIndices,len(atomIndices)
+	#making a dictionary for fast access to location of where the final value 
+	#will end up in the matrix
+	atomDict={}
+	for i in atomIndices:
+		atomDict[atomIndices[i]]=i
 	# Load the project 
 	prj = m.Project.load_from(projectFile)
 	#load the assignments
@@ -47,7 +57,7 @@ def positionalMutualCalculator(assignFile,projectFile,gensFile,atomIndices,state
 
 
 	#eventually Need to update this so that only certain states are tabulated
-	
+
 	if -1 == states:
 		print "Calculating Mutual Information for all states"
 		#currently going to calculate MI for all states
@@ -76,7 +86,9 @@ def positionalMutualCalculator(assignFile,projectFile,gensFile,atomIndices,state
 			stateAssignmentDict[macroAssignments[trjIndex,frmIndex]]\
 			.append((trjIndex,frmIndex))
 
-	
+	#number of neighbor
+	k=5
+
 	#loop through the states
 	for s in states:
 		mMat=np.zeros((len(atomIndices),len(atomIndices)))
@@ -105,18 +117,44 @@ def positionalMutualCalculator(assignFile,projectFile,gensFile,atomIndices,state
 		#Now, we should have clusterTraj, we can prepare it
 		pclusterTraj=rmsd_metric.prepare_trajectory(clusterTraj)
 		rmsd,xout=rmsd_metric.one_to_all_aligned(pgenTraj, pclusterTraj, s)
-
-		xout=xout-pgenTraj[s]['XYZList']
+		#xout is the aligned trajectory, we need to subtract every value in it 
+		#from the generator to the deviation from the mean
 		N=len(xout)
-		k=5
+		randomT=np.random.randint(N)
+		randomI=np.random.randint(len(xout[0]))
+		sanityTest=xout[randomT,randomI]
+		
+		#doing the actual subtraction
+		xout=xout-pgenTraj[s]['XYZList']
+		
+
+
+		#simple test, basically subtract the ensemble average from a random 
+		#atom index at a random time step and see if they are equal. 
+		sanityTestValue=(sanityTest-pgenTraj[s]['XYZList'][0,randomI])
+		assert(((xout[randomT,randomI]) == (sanityTestValue)).all())
+
+		jobs=[]
+		#for the positional vectors
 		for indexTracker,atomindexI in enumerate(atomIndices):
-			for indexTracker2,atomindexJ in enumerate(atomIndices):
-				print atomindexI,atomindexJ
+			for indexTracker2,atomindexJ in enumerate(atomIndices[indexTracker:]):
 				data=np.zeros((N,6))
 				data[:,:3]=xout[:,atomindexI]
 				data[:,3:]=xout[:,atomindexJ]
-				mMat[indexTracker][indexTracker2] = mutual_nearest_neighbors(N,k,data)
+				job=(N,k,atomindexI,atomindexJ,data)
+				jobs.append(job)
+				#mMat[indexTracker][indexTracker2] = mutual_nearest_neighbors(N,k,data)
+
+		results=view.map(mutual_nearest_neighbors,*zip(*jobs))
+		all_mutuals = results.get()
+        	for i,job in enumerate(jobs):
+        		print atomDict[results[i][0]],results[i][1]
+        		mMat[atomDict[results[i][0]]][atomDict[results[i][1]]]=\
+        		mMat[atomDict[results[i][1]]][atomDict[results[i][0]]]=\
+        		results[i][-1]
+
 		np.savetxt('%s.dat'%s,mMat)
+
 	return 0
 
 
