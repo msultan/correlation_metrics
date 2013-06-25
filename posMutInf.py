@@ -5,7 +5,7 @@ from posMutualCode import *
 from testMutualCode import testPositionMutualInformationCode
 import numpy as np
 
-def positionalMutualCalculator(assignFile,projectFile,gensFile,atomIndices,states):
+def positionalMutualCalculator(dir,assignFile,projectFile,gensFile,atomIndices,states):
 	'''
 	Mutual information Calculator for the positional Vectors of a specified \
 	residues. This code is based
@@ -40,16 +40,16 @@ def positionalMutualCalculator(assignFile,projectFile,gensFile,atomIndices,state
   	view = client_list.load_balanced_view()
 
 	#Load the Atom Indices 
-	atomIndices=np.loadtxt(options.atomIndices,np.int)
+	atomIndices=np.loadtxt(dir+atomIndices,np.int)
 	#making a dictionary for fast access to location of where the final value 
 	#will end up in the matrix
 	atomDict={}
 	for i in atomIndices:
 		atomDict[atomIndices[i]]=i
 	# Load the project 
-	prj = m.Project.load_from(projectFile)
+	prj = m.Project.load_from(dir+projectFile)
 	#load the assignments
-	macroAssignments = m.io.loadh(assignFile)
+	macroAssignments = m.io.loadh(dir+assignFile)
 	#get the actual assignment
 	macroAssignments = macroAssignments['arr_0']
 
@@ -68,8 +68,8 @@ def positionalMutualCalculator(assignFile,projectFile,gensFile,atomIndices,state
 	rmsd_metric=lprmsd.LPRMSD(atomIndices,None,None)
 
 	#loading the generator file and creating a trajectory out of it.
-	if os.path.exists(gensFile):
-		gensTraj = Trajectory.load_trajectory_file(gensFile)
+	if os.path.exists(dir+gensFile):
+		gensTraj = Trajectory.load_trajectory_file(dir+gensFile)
 		pgenTraj = rmsd_metric.prepare_trajectory(gensTraj)
 
 
@@ -112,7 +112,6 @@ def positionalMutualCalculator(assignFile,projectFile,gensFile,atomIndices,state
 		for currTrj in TrajNums:
 			T=prj.load_traj(currTrj)[np.array(FrameDict[currTrj])]
 			clusterTraj += T
-
 		print "Loaded %i conformations"%len(clusterTraj)
 		#Now, we should have clusterTraj, we can prepare it
 		pclusterTraj=rmsd_metric.prepare_trajectory(clusterTraj)
@@ -120,19 +119,21 @@ def positionalMutualCalculator(assignFile,projectFile,gensFile,atomIndices,state
 		#xout is the aligned trajectory, we need to subtract every value in it 
 		#from the generator to the deviation from the mean
 		N=len(xout)
+		print N
 		randomT=np.random.randint(N)
 		randomI=np.random.randint(len(xout[0]))
 		sanityTest=xout[randomT,randomI]
-		
+
 		#doing the actual subtraction
-		xout=xout-pgenTraj[s]['XYZList']
-		
+		xout=xout-np.average(xout,axis=0)
+		assert((sum(xout[:,randomI])/N == np.average(xout,axis=0)[randomI]).all)
 
 
 		#simple test, basically subtract the ensemble average from a random 
 		#atom index at a random time step and see if they are equal. 
 		sanityTestValue=(sanityTest-pgenTraj[s]['XYZList'][0,randomI])
-		assert(((xout[randomT,randomI]) == (sanityTestValue)).all())
+
+		#assert(((xout[randomT,randomI]) == (sanityTestValue)).all())
 
 		jobs=[]
 		#for the positional vectors
@@ -162,10 +163,11 @@ def parse_commandline():
 	import os
 	import optparse
 	parser = optparse.OptionParser()
-	parser.add_option('--test', dest='test', default=0, \
+	parser.add_option('-d','--dir',default='posTest/',help='Data Folder')
+	parser.add_option('--test', dest='test', default=0,\
 					help='test the code')
 	parser.add_option('-a', '--assignmentFile',default='Macro4/MacroAssignments.h5'\
-					,dest='assignFile',help='Assignment File')
+		,dest='assignFile',help='Assignment File')
 	parser.add_option('-p','--projectFile',dest='projectFile',\
 					help='Project File',default='ProjectInfo.h5')
 	parser.add_option('-g','--genFile',default='Data/Gens.lh5',\
@@ -188,7 +190,7 @@ if __name__ == '__main__':
 	if (options.test): 
 		testPositionMutualInformationCode()
 	else:
-		positionalMutualCalculator(options.assignFile,options.projectFile,options.genFile,\
+		positionalMutualCalculator(options.dir,options.assignFile,options.projectFile,options.genFile,\
 			options.atomIndices,options.states)
 
 
