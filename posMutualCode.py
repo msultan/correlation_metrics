@@ -14,9 +14,9 @@ def kdistANN(N,kN,data,dim):
     kdTree = spatial.KDTree(data)
     for i in range(0,N):
         pt[0,:dim] = data[i][:dim] 
-        pt[0,dim:] = data[i][dim:]
-        temp=kdTree.query(pt,kN+1,eps=0,p=2.0)
-        kdist[i]=temp[0][0][kN]
+        pt[0,dim:] = data[i][dim:]  
+        temp=kdTree.query(pt.flatten(),kN+1,'inf')
+        kdist[i]=temp[0][kN]
 
     return kdist
  
