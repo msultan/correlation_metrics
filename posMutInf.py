@@ -139,13 +139,10 @@ def positionalMutualCalculator(dir,assignFile,projectFile,gensFile,atomIndices,s
 		#for the positional vectors
 		for indexTracker,atomindexI in enumerate(atomIndices):
 			for indexTracker2,atomindexJ in enumerate(atomIndices[indexTracker:]):
-				data=np.zeros((N,6))
-				data[:,:3]=xout[:,atomindexI]
-				data[:,3:]=xout[:,atomindexJ]
-				job=(N,k,atomindexI,atomindexJ,data)
+				job=(N,k,atomindexI,atomindexJ,\
+					np.hstack((xout[:,atomindexI],xout[:,atomindexJ])))
 				jobs.append(job)
 				#mMat[indexTracker][indexTracker2] = mutual_nearest_neighbors(N,k,data)
-
 		results=view.map(mutual_nearest_neighbors,*zip(*jobs))
 		all_mutuals = results.get()
         	for i,job in enumerate(jobs):
