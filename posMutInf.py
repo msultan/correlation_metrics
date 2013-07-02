@@ -87,7 +87,7 @@ def positionalMutualCalculator(dir,assignFile,projectFile,gensFile,atomIndices,s
 			.append((trjIndex,frmIndex))
 
 	#number of neighbor
-	k=5
+	k=6
 
 	#loop through the states
 	for s in states:
