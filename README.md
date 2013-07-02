@@ -7,6 +7,7 @@ calculate Mutual Information.
 
 Notes:
 ==============
-Make sure you test the code before running it. Both scripts contain test cases for calculating mutual information 
+1). Make sure you test the code before running it. Both scripts contain test cases for calculating mutual information 
 for bivarite distributions that have analytical solutions. 
-
+2). The positional code starts to show variation from the analytical solution for d>6 if you don't have enough data 
+points. Using around 10k-20k points should work but it will take some time to calculate the solution. 
