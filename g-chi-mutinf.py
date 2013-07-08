@@ -145,8 +145,8 @@ def mutual_information_from_files(res_name1, res_id1, res_name2, res_id2,       
 		kappa1=numpy.random.random()
 		kappa2=numpy.random.random()
 
-		dihedral_id1=57.2957795*numpy.random.vonmises(mu1,kappa1,1000)
-		dihedral_id2=57.2957795*numpy.random.vonmises(mu2,kappa2,1000)
+		dihedral_id1=57.2957795*numpy.random.vonmises(mu1,kappa1,100000)
+		dihedral_id2=57.2957795*numpy.random.vonmises(mu2,kappa2,100000)
 
 #The magic begins here:The mutual information is defined as the 2d  sum of joint probability of x,y multiplied by the log(joint/marginal probabilites probabilities)
 
