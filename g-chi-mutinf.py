@@ -57,7 +57,7 @@ def writeToCSV(dict):
 
 
 def create_hd5files_from_xvg(dir,skiprows):
-    filename_list=glob.glob('%s/*.xvg.all_data_450micro'%dir)
+    filename_list=glob.glob('%s/*.xvg'%dir)
     for i,filename in enumerate(filename_list):
     #creating hdf5 files for those that have not been created before. 
         if not (os.path.exists(filename+'.h5')):
@@ -123,8 +123,8 @@ def mutual_information_from_files(res_name1, res_id1, res_name2, res_id2,       
     if not test:
             # example file namephiALA1.xvg.all_data_450micro
             #f.root.time_dihedral.grid[1]
-        filename_id1 = glob.glob('%s/%s???%d.xvg.all_data_450micro.h5' %(dir,res_name1,res_id1))
-        filename_id2 = glob.glob('%s/%s???%d.xvg.all_data_450micro.h5' %(dir,res_name2,res_id2))
+        filename_id1 = glob.glob('%s/%s???%d.xvg.h5' %(dir,res_name1,res_id1))
+        filename_id2 = glob.glob('%s/%s???%d.xvg.h5' %(dir,res_name2,res_id2))
         if  filename_id1 and filename_id2:
             f=tables.openFile(filename_id1[0])
             dihedral_id1=numpy.array(f.root.time.grid[:])
