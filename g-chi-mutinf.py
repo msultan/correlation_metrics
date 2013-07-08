@@ -289,5 +289,5 @@ def parse_commandline():
 
 if __name__ == "__main__":
     (options, args) = parse_commandline()
-    create_hd5files_from_xvg(options.dir,options.s)
+    #create_hd5files_from_xvg(options.dir,options.s)
     main(dir=options.dir, total_n_residues=options.t,n_iterations=options.i,skiprows=options.s,bin_n=options.bin_n, test=options.test,numWin=options.numWin)
