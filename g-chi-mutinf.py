@@ -279,7 +279,7 @@ def parse_commandline():
     parser.add_option('-t','--total_residues',dest='t',type="int",help='total       number of residues')
     parser.add_option('-i', '--total_iterations', dest='i', type="int", default=1, help=' total iterations')
     parser.add_option('--test', dest='test', default=0, help='test the code')
-    parser.add_option('-s', '--skip_rows', dest='s',type='int', default=0,help='how many rows to skip')
+    parser.add_option('-s', '--skip_rows', dest='s',type='int', default=12,help='how many rows to skip')
     parser.add_option('-b', '--bins',dest='bin_n', type='int', default=24, help='The number of Bins used to bin data(Default 24). Too few bins can lead to problems')
     parser.add_option('-w', '--windows',dest='numWin', type='int', default=1, help='Whether or not to use windows in the calculation')
     (options, args) = parser.parse_args()
