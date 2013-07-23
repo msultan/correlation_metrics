@@ -187,10 +187,10 @@ def mutual_information_from_files(res_name1, res_id1, res_name2, res_id2,       
 	print "mutual(H_x+H_y-H_x_y)","*"*7,mutual,"*"*15,mutual_a
 	print "\nNote that every now and then the result might be a bit off from the analytical solution due to the inherent randomness in the starting dataset.\n"
 
-def main(dir,total_n_residues,n_iterations,skiprows,bin_n, test,numWin):
+def main(dir,total_n_residues,n_iterations,skiprows,bin_n, test,numWin,prf):
     olderr = numpy.seterr(all='ignore') 
     #Setting up the parallel stuff 
-    client_list=parallel.Client(profile='mpi')
+    client_list=parallel.Client(profile=prf)
     print "Running on:",len(client_list.ids)
     view = client_list.load_balanced_view()
     
@@ -219,10 +219,10 @@ def main(dir,total_n_residues,n_iterations,skiprows,bin_n, test,numWin):
         file_name_list=glob.glob('%s/*.h5'%dir)
         print "Found",len(file_name_list),"files"
         for i,file_id1 in enumerate(file_name_list):
-            name1=re.findall("chi1|chi2|chi3|chi4|phi|psi",file_name_list[i])[0]
+	    name1=re.findall("chi1|chi2|chi3|chi4|phi|psi",file_name_list[i])[0]
             id1=int((re.findall("[A-Z]{3}\d+",file_name_list[i])[0])[3:])
             for j,file_id2 in enumerate(file_name_list[i:]):
-                name2=re.findall("chi1|chi2|chi3|chi4|phi|psi",file_name_list[j])[0]
+		name2=re.findall("chi1|chi2|chi3|chi4|phi|psi",file_name_list[j])[0]
                 id2=int((re.findall("[A-Z]{3}\d+",file_name_list[j])[0])[3:])
                 for ic in range(0,n_iterations):
                     if ic==0:
@@ -230,8 +230,7 @@ def main(dir,total_n_residues,n_iterations,skiprows,bin_n, test,numWin):
                     else:
                         job = (name1, id1, name2, id2, True,dir,skiprows,bin_n,False,numWin)
                     jobs.append(job)
-    print "Created",len(jobs),"jobs"
-                   
+    print "Created",len(jobs),"jobs"               
     print "Pruning job list"
     job_checker(dir,jobs,final_grid,average_grid)
     if len(jobs)>0:
@@ -281,6 +280,7 @@ def parse_commandline():
     parser.add_option('--test', dest='test', default=0, help='test the code')
     parser.add_option('-s', '--skip_rows', dest='s',type='int', default=12,help='how many rows to skip')
     parser.add_option('-b', '--bins',dest='bin_n', type='int', default=24, help='The number of Bins used to bin data(Default 24). Too few bins can lead to problems')
+    parser.add_option('-p','--parallel_profile',dest='p',default='mpi',help='the parallel profile to use')
     parser.add_option('-w', '--windows',dest='numWin', type='int', default=1, help='Whether or not to use windows in the calculation')
     (options, args) = parser.parse_args()
     return (options, args)
@@ -290,4 +290,4 @@ def parse_commandline():
 if __name__ == "__main__":
     (options, args) = parse_commandline()
     #create_hd5files_from_xvg(options.dir,options.s)
-    main(dir=options.dir, total_n_residues=options.t,n_iterations=options.i,skiprows=options.s,bin_n=options.bin_n, test=options.test,numWin=options.numWin)
+    main(dir=options.dir, total_n_residues=options.t,n_iterations=options.i,skiprows=options.s,bin_n=options.bin_n, test=options.test,numWin=options.numWin,profile=options.p)

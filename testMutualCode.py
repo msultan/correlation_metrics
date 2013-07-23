@@ -11,7 +11,7 @@ def testPositionMutualInformationCode():
 	import matplotlib.pyplot as mlp
 	printMessage()
 	tN=3
-	n_frm=N=600
+	n_frm=N=1000
 	k=6
 	mean=[[0,1,2,3,4,5,6,7,8,9],[0,1,2,3,4,5,6,7],[0,1,2,3,4,5],[0,1,2,3],[0,1]]
 	cov=[[[1,0.85,0.85,0.85,0.85,0.85,0.85,0.85,0.85,0.85],[0.85,1,0.85,0.85,0.85,0.85,0.85,0.85,0.85,0.85],\
@@ -32,7 +32,7 @@ def testPositionMutualInformationCode():
 	# cov=[[1,0.85,0.85],[0.85,1,0.85],[0.85,0.85,1]]
 	# dim=3
 	jobs=zip(mean,cov,dim)
-	for mean,cov,dim in jobs:
+	for mean,cov,dim in jobs[2:]:
 # 		cov=np.random.random((dim,dim))
 #  		cov=np.array(cov)
 # 		cov =cov * np.random.
