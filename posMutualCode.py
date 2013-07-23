@@ -37,7 +37,6 @@ def MI(N,k,kdist,data):
 	countMat should have N rows and 2 cols, we add the psi values of \
 	cols up first and then take the average of the (N,1) vector. 
 	'''
-	
 	out = - np.mean(np.sum(scipy.special.psi(countMat+1),axis=1))
 
 	#for every pt find its neighbors in x and y regime based on the distance to the
