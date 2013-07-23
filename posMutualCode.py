@@ -1,11 +1,13 @@
 #!/usr/bin/env python
 from __future__ import division
 from scipy import spatial
-from scipy.spatial import KDTree
 import numpy as np 
 import scipy.special
 import numpy as np 
+import ann
+from scipy.spatial import kdtree
 
+	
 def count_dist(N,data,kdist):
 	from scipy.spatial.distance import euclidean as euc
 	#This routine count how many points in the dataset data have 
@@ -49,10 +51,18 @@ def mutual_nearest_neighbors(N,k,i,j,data):
 	#calculate the distance to the kth neighbor for every pt in the dataset 
 	#using euclidean distances
 	kdist=np.zeros(N)
-	kdTree = spatial.KDTree(data)  
-	temp=kdTree.query(data[:],k+1,p=np.inf)
-	temp=temp[0][:]	  
-	kdist=temp[:,k]
-	
+	kdTree = ann.kd_tree(data)
+	idx,dis=kdTree.search(data[:],k+1,eps=0.0)
+	#temp
+	#print idx,dis
+	kdist=dis[:,k]	
 	mi=MI(N,k,kdist,data)
+	#print mi
+	#kdist=np.zeros(N)
+	#kdTree=kdtree.KDTree(data)
+	#dis,idx=kdTree.query(data[:],k+1,p=np.inf,eps=0.0)
+	#print idx,dis
+	#kdist=dis[:,k]
+	mi=MI(N,k,kdist,data)
+	#print mi
 	return (i,j,mi)
