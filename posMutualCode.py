@@ -4,8 +4,7 @@ from scipy import spatial
 import numpy as np 
 import scipy.special
 import numpy as np 
-import ann
-from scipy.spatial import kdtree
+from scikits import ann as ann
 
 	
 def count_dist(N,data,kdist):
@@ -51,18 +50,8 @@ def mutual_nearest_neighbors(N,k,i,j,data):
 	#calculate the distance to the kth neighbor for every pt in the dataset 
 	#using euclidean distances
 	kdist=np.zeros(N)
-	kdTree = ann.kd_tree(data)
-	idx,dis=kdTree.search(data[:],k+1,eps=0.0)
-	#temp
-	#print idx,dis
+	kdTree = ann.kdtree(np.array(data))
+	idx,dis=kdTree.knn(np.array(data[:]),k+1,eps=0.0)
 	kdist=dis[:,k]	
 	mi=MI(N,k,kdist,data)
-	#print mi
-	#kdist=np.zeros(N)
-	#kdTree=kdtree.KDTree(data)
-	#dis,idx=kdTree.query(data[:],k+1,p=np.inf,eps=0.0)
-	#print idx,dis
-	#kdist=dis[:,k]
-	mi=MI(N,k,kdist,data)
-	#print mi
 	return (i,j,mi)
