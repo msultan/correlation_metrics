@@ -49,9 +49,9 @@ def job_checker(dir,jobs,final_grid,average_grid):
 		
 	return jobs     
 
-def writeToCSV(dict):
+def writeToCSV(dir,dict):
 	import csv
-	w = csv.writer(open("temp-list.csv", "a"))
+	w = csv.writer(open(dir+"temp-list.csv", "a"))
 	for key in dict:
     	   w.writerow([key,dict[key]])
 
@@ -165,6 +165,9 @@ def mutual_information_from_files(res_name1, res_id1, res_name2, res_id2,       
     H_x_y=-numpy.nansum((joint_pdf_bin_count/N) *numpy.log(joint_pdf_bin_count/N))+numpy.log(dx*dx)
     
     mutual=H_x+H_y-H_x_y
+#normalizing the results
+#based on the fact that I(X,Y) <= min(H(x),H(y)); I am using the geometric mean here.
+    mutual = mutual / np.sqrt(H_x * H_y)
     result.append(mutual)
     
     if not test:
@@ -184,7 +187,7 @@ def mutual_information_from_files(res_name1, res_id1, res_name2, res_id2,       
 	print "H_x","*"*25,H_x,"*"*20,H_x_a
 	print "H_y","*"*25,H_y,"*"*20,H_y_a
 	print "H_x_y","*"*24,H_x_y,"*"*20,H_x_y_a
-	print "mutual(H_x+H_y-H_x_y)","*"*7,mutual,"*"*15,mutual_a
+	print "mutual(H_x+H_y-H_x_y)","*"*7,mutual*np.sqrt(H_x*H_y),"*"*15,mutual_a
 	print "\nNote that every now and then the result might be a bit off from the analytical solution due to the inherent randomness in the starting dataset.\n"
 
 def main(dir,total_n_residues,n_iterations,skiprows,bin_n, test,numWin,prf):
@@ -246,7 +249,7 @@ def main(dir,total_n_residues,n_iterations,skiprows,bin_n, test,numWin,prf):
         #wait a while for the jobs to finish
         while pending:
             try:
-                client_list.wait(pending,1)
+                client_list.wait(pending,3600)
             except parallel.TimeoutError:
             	pass
             #   print "Here" 
@@ -257,7 +260,7 @@ def main(dir,total_n_residues,n_iterations,skiprows,bin_n, test,numWin,prf):
         	for singleResult in ar.result:
         	    print singleResult
         	    results_dict[(singleResult[0])]=singleResult[1]
-            writeToCSV(results_dict)
+            writeToCSV(dir,results_dict)
     
         print "BACKED UP THE DATA at %d"%(int(time.time()))
         
@@ -280,7 +283,7 @@ def parse_commandline():
     parser.add_option('--test', dest='test', default=0, help='test the code')
     parser.add_option('-s', '--skip_rows', dest='s',type='int', default=12,help='how many rows to skip')
     parser.add_option('-b', '--bins',dest='bin_n', type='int', default=24, help='The number of Bins used to bin data(Default 24). Too few bins can lead to problems')
-    parser.add_option('-p','--parallel_profile',dest='p',default='mpi',help='the parallel profile to use')
+    parser.add_option('-p','--parallel_profile',dest='prf',default='mpi',help='the parallel profile to use')
     parser.add_option('-w', '--windows',dest='numWin', type='int', default=1, help='Whether or not to use windows in the calculation')
     (options, args) = parser.parse_args()
     return (options, args)
@@ -290,4 +293,4 @@ def parse_commandline():
 if __name__ == "__main__":
     (options, args) = parse_commandline()
     #create_hd5files_from_xvg(options.dir,options.s)
-    main(dir=options.dir, total_n_residues=options.t,n_iterations=options.i,skiprows=options.s,bin_n=options.bin_n, test=options.test,numWin=options.numWin,profile=options.p)
+    main(dir=options.dir, total_n_residues=options.t,n_iterations=options.i,skiprows=options.s,bin_n=options.bin_n, test=options.test,numWin=options.numWin,prf=options.prf)
