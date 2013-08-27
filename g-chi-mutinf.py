@@ -23,11 +23,12 @@ def grid_writer(job,value,final_grid,average_grid):
     #if shuffle is active, then put the result in the average grid 
     if shuffle:
         average_grid[id1-1][id2-1] += value
+    	#since only half the data is calculated we need to add it for the other half, the check makes sure we don't doubly add the data
         if id1 != id2:
             average_grid[id2-1][id1-1] += value
     else:
         final_grid[id1-1][id2-1] += value
-        #since only half the data is calculated we need to add it for the other half, the check makes sure we don't doubly add the data
+
         if id1 != id2:
             final_grid[id2-1][id1-1] += value
 
@@ -274,8 +275,9 @@ def main(dir,total_n_residues,n_iterations,skiprows,bin_n, test,numWin,prf):
         for i,job in enumerate(jobs):
             grid_writer(job,(all_mutuals[i])[1],final_grid,average_grid)
     
-    #the final result is the mutual information minus the average of the noise
-    final_grid=final_grid - (average_grid/n_iterations) 
+    #the final result is the mutual information minus the average of the noise when the # of iterations is greater than 1
+    if n_iterations > 1:
+    	final_grid = final_grid - (average_grid/(n_iterations-1)) 
     file = open('%s/'%dir+'mut-inf-mat.txt', 'w')
     numpy.savetxt(file, final_grid)
 
