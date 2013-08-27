@@ -232,7 +232,7 @@ def main(dir,total_n_residues,n_iterations,skiprows,bin_n, test,numWin,prf):
             for j,file_id2 in enumerate(file_name_list[i:]):
         #get the name and id for the second residue
 		name2=re.findall("chi1|chi2|chi3|chi4|phi|psi",file_name_list[i+j])[0]
-                id2=int((re.findall("[A-Z]{3}\d+",file_name_list[j])[0])[3:])
+                id2=int((re.findall("[A-Z]{3}\d+",file_name_list[i+j])[0])[3:])
                 for ic in range(0,n_iterations):
                     if ic==0:
                         job=(name1, id1, name2, id2, False,dir,skiprows,bin_n,False,numWin)
