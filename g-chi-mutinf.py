@@ -188,7 +188,7 @@ def mutual_information_from_files(res_name1, res_id1, res_name2, res_id2,       
 	print "H_x","*"*25,H_x,"*"*20,H_x_a
 	print "H_y","*"*25,H_y,"*"*20,H_y_a
 	print "H_x_y","*"*24,H_x_y,"*"*20,H_x_y_a
-	print "mutual(H_x+H_y-H_x_y)","*"*7,mutual*np.sqrt(H_x*H_y),"*"*15,mutual_a
+	print "mutual(H_x+H_y-H_x_y)","*"*7,mutual*numpy.sqrt(H_x*H_y),"*"*15,mutual_a
 	print "\nNote that every now and then the result might be a bit off from the analytical solution due to the inherent randomness in the starting dataset.\n"
 
 def main(dir,total_n_residues,n_iterations,skiprows,bin_n, test,numWin,prf):
