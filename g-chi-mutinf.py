@@ -168,7 +168,7 @@ def mutual_information_from_files(res_name1, res_id1, res_name2, res_id2,       
     mutual=H_x+H_y-H_x_y
 #normalizing the results
 #based on the fact that I(X,Y) <= min(H(x),H(y)); I am using the geometric mean here.
-    mutual = mutual / np.sqrt(H_x * H_y)
+    #mutual = mutual / np.sqrt(H_x * H_y)
     result.append(mutual)
     
     if not test:
